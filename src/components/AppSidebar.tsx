@@ -74,11 +74,11 @@ const menuItems: MenuItem[] = [
     title: "Member",
     icon: Users,
     submenu: [
-      { title: "Add Member", icon: UserPlus, path: "/member/add" },
+      { title: "Add Member", icon: UserPlus, path: "/member/add-member" },
       {
         title: "Member List",
         icon: List,
-        path: "/member/mass-list",
+        path: "/member/member-memberlist",
       },
       {
         title: "Direct Member List",

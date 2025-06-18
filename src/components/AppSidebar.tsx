@@ -111,7 +111,11 @@ const menuItems: MenuItem[] = [
     title: "Geneology",
     icon: Users,
     submenu: [
-      { title: "Grid View", icon: UserPlus, path: "/geneology/grid-view" },
+      {
+        title: "Level View",
+        icon: UserPlus,
+        path: "/geneology/level-wise-team",
+      },
       { title: "Binary View", icon: UserPlus, path: "/geneology/binary-view" },
     ],
   },
@@ -127,7 +131,7 @@ const menuItems: MenuItem[] = [
       {
         title: "Request Status",
         icon: UserPlus,
-        path: "/withdrawal/send-request",
+        path: "/withdrawal/request-status",
       },
     ],
   },

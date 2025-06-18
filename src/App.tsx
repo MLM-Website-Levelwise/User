@@ -6,19 +6,23 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 
-import Dashboard from "./pages/Dashboard/Dashboard";
+import Dashboard from "./pages/1.Dashboard/Dashboard";
 
-import AddMember from "./pages/Member/AddMember";
-import DirectMembers from "./pages/Member/DirectMembers";
-import MemberList from "./pages/Member/MemberList";
+import AddMember from "./pages/2.Member/AddMember";
+import DirectMembers from "./pages/2.Member/DirectMembers";
+import MemberList from "./pages/2.Member/MemberList";
 
-import IdActivation from "./pages/Top-Up/IDActivation";
-import TopUpStatement from "./pages/Top-Up/TopUpStatement";
+import IdActivation from "./pages/3.Top-Up/IDActivation";
+import TopUpStatement from "./pages/3.Top-Up/TopUpStatement";
 
-import SelfPurchase from "./pages/Purchase/SelfPurchase";
-import SelfPurchaseReport from "./pages/Purchase/SelfPurchaseReport";
+import SelfPurchase from "./pages/4.Purchase/SelfPurchase";
+import SelfPurchaseReport from "./pages/4.Purchase/SelfPurchaseReport";
 
-import TreeView from "./pages/Geneology/TreeView";
+import TreeView from "./pages/5.Geneology/TreeView";
+import LevelView from "./pages/5.Geneology/LevelView";
+
+import SendRequest from "./pages/6.Withdrawal.tsx/SendRequest";
+import RequestStatus from "./pages/6.Withdrawal.tsx/RequestStatus";
 
 import NotFound from "./pages/NotFound";
 
@@ -39,6 +43,9 @@ const App = () => (
           <Route path="/member/add-member" element={<AddMember />} />
           <Route path="/member/member-memberlist" element={<MemberList />} />
           <Route path="/member/direct-list" element={<DirectMembers />} />
+          {/* Geneology */}
+          <Route path="/geneology/level-wise-team" element={<LevelView />} />
+          <Route path="/geneology/binary-view" element={<TreeView />} />
           {/* Top Up */}
           <Route path="/top-up/idactivation" element={<IdActivation />} />
           <Route path="/top-up/statement" element={<TopUpStatement />} />
@@ -48,9 +55,14 @@ const App = () => (
             path="/purchase/self-purchase-report"
             element={<SelfPurchaseReport />}
           />
-          {/* Geneology */}
-          <Route path="/geneology/binary-view" element={<TreeView />} />
 
+          {/* Withdrawal */}
+          <Route path="/withdrawal/send-request" element={<SendRequest />} />
+          <Route
+            path="/withdrawal/request-status"
+            element={<RequestStatus />}
+          />
+          {/* Not found */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

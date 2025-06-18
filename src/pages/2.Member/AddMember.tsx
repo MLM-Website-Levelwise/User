@@ -186,7 +186,7 @@ const AddMember = () => {
                         </select>
                       </div>
 
-                      <div>
+                      {/* <div>
                         <label className="block text-sm font-medium mb-1">
                           Package *
                         </label>
@@ -199,7 +199,7 @@ const AddMember = () => {
                           <option value="">Select Package</option>
                           <option value="left">6000/- Package</option>
                         </select>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
 

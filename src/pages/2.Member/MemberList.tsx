@@ -446,7 +446,7 @@ const ViewMember = () => {
                   Active Status
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium">
-                  Actions
+                  Position
                 </th>
               </tr>
             </thead>
@@ -506,7 +506,7 @@ const ViewMember = () => {
                       {member.activeStatus}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm">
+                  {/* <td className="px-4 py-3 text-sm">
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleAction("Update", member)}
@@ -540,7 +540,7 @@ const ViewMember = () => {
                         )}
                       </button>
                     </div>
-                  </td>
+                  </td> */}
                 </tr>
               ))}
             </tbody>

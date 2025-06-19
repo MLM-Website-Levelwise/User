@@ -1,8 +1,7 @@
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Search,
   Filter,
@@ -13,144 +12,17 @@ import {
   Ban,
   UserCheck,
 } from "lucide-react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 
 const ViewMember = () => {
-  // Sample data - replace with your actual data
-  const [members] = useState([
-    {
-      id: 1,
-      memberId: "245037",
-      name: "Vipul bhai",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Premium",
-      phoneNumber: "9913023612",
-      password: "123456",
-      doj: "2025-05-13",
-      activeStatus: "Inactive",
-    },
-    {
-      id: 2,
-      memberId: "949317",
-      name: "Raju Maity",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Gold",
-      phoneNumber: "7896720951",
-      password: "123456",
-      doj: "2025-03-01",
-      activeStatus: "Active",
-    },
-    {
-      id: 3,
-      memberId: "421098",
-      name: "Tapas Sett",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Silver",
-      phoneNumber: "8240229481",
-      password: "123456",
-      doj: "2023-09-29",
-      activeStatus: "Active",
-    },
-    {
-      id: 4,
-      memberId: "568189",
-      name: "Goutam Singh",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Premium",
-      phoneNumber: "9875584653",
-      password: "123456",
-      doj: "2023-09-29",
-      activeStatus: "Active",
-    },
-    {
-      id: 5,
-      memberId: "243752",
-      name: "mangal",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Basic",
-      phoneNumber: "1598753215",
-      password: "3897",
-      doj: "2023-09-29",
-      activeStatus: "Active",
-    },
-    {
-      id: 6,
-      memberId: "731542",
-      name: "amit",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Gold",
-      phoneNumber: "988989898",
-      password: "123456",
-      doj: "2023-09-29",
-      activeStatus: "Active",
-    },
-    {
-      id: 7,
-      memberId: "876376",
-      name: "bipul",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Silver",
-      phoneNumber: "987456344",
-      password: "123456",
-      doj: "2023-09-29",
-      activeStatus: "Active",
-    },
-    {
-      id: 8,
-      memberId: "122977",
-      name: "biru",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Premium",
-      phoneNumber: "8617414838",
-      password: "123456",
-      doj: "2023-09-29",
-      activeStatus: "Active",
-    },
-    {
-      id: 9,
-      memberId: "148018",
-      name: "biru",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Basic",
-      phoneNumber: "8617414838",
-      password: "123456",
-      doj: "2023-09-29",
-      activeStatus: "Active",
-    },
-    {
-      id: 10,
-      memberId: "922924",
-      name: "Wazir",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Gold",
-      phoneNumber: "7017127812",
-      password: "123456",
-      doj: "2023-09-19",
-      activeStatus: "Active",
-    },
-    {
-      id: 11,
-      memberId: "891832",
-      name: "Abc",
-      sponsorCode: "100001",
-      sponsorName: "Company 1",
-      package: "Silver",
-      phoneNumber: "0000000000",
-      password: "1783",
-      doj: "2022-07-23",
-      activeStatus: "Active",
-    },
-  ]);
+  const navigate = useNavigate();
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // Filter and pagination states
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -164,29 +36,63 @@ const ViewMember = () => {
     memberCode: "",
     memberName: "",
     activeStatus: "",
+    position: "",
   });
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+        const memberId = localStorage.getItem("memberId"); // For dynamic title
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const response = await axios.get("http://localhost:5000/my-member", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setMembers(response.data.members || []);
+      } catch (err) {
+        setError(err.response?.data?.error || "Failed to fetch members");
+        toast.error(err.response?.data?.error || "Failed to fetch members");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMembers();
+  }, [navigate]);
 
   // Filter and search logic
   const filteredMembers = useMemo(() => {
     return members.filter((member) => {
       const matchesSearch =
         member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.memberId.includes(searchTerm) ||
-        member.phoneNumber.includes(searchTerm) ||
-        member.sponsorName.toLowerCase().includes(searchTerm.toLowerCase());
+        member.member_id.includes(searchTerm) ||
+        member.sponsor_name.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesDateFrom =
-        !filters.dateFrom || member.doj >= filters.dateFrom;
-      const matchesDateTo = !filters.dateTo || member.doj <= filters.dateTo;
+        !filters.dateFrom || member.date_of_joining >= filters.dateFrom;
+      const matchesDateTo =
+        !filters.dateTo || member.date_of_joining <= filters.dateTo;
       const matchesPackage =
         !filters.package || member.package === filters.package;
       const matchesMemberCode =
-        !filters.memberCode || member.memberId.includes(filters.memberCode);
+        !filters.memberCode || member.member_id.includes(filters.memberCode);
       const matchesMemberName =
         !filters.memberName ||
         member.name.toLowerCase().includes(filters.memberName.toLowerCase());
       const matchesActiveStatus =
-        !filters.activeStatus || member.activeStatus === filters.activeStatus;
+        !filters.activeStatus ||
+        (filters.activeStatus === "Active"
+          ? member.active_status
+          : !member.active_status);
+      const matchesPosition =
+        !filters.position || member.position === filters.position;
 
       return (
         matchesSearch &&
@@ -195,7 +101,8 @@ const ViewMember = () => {
         matchesPackage &&
         matchesMemberCode &&
         matchesMemberName &&
-        matchesActiveStatus
+        matchesActiveStatus &&
+        matchesPosition
       );
     });
   }, [members, searchTerm, filters]);
@@ -221,6 +128,7 @@ const ViewMember = () => {
       memberCode: "",
       memberName: "",
       activeStatus: "",
+      position: "",
     });
     setCurrentPage(1);
   };
@@ -233,13 +141,36 @@ const ViewMember = () => {
     alert(`${action} action for member: ${member.name}`);
   };
 
+  if (loading) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading members...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p>Error: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="bg-white rounded-lg shadow-sm">
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-2xl font-bold text-gray-800 mb-4">
-            View Members
+            {localStorage.getItem("memberId")
+              ? "My Downline Members"
+              : "All Members"}
           </h1>
 
           {/* Top Controls */}
@@ -399,6 +330,22 @@ const ViewMember = () => {
                     <option value="Inactive">Inactive</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Position
+                  </label>
+                  <select
+                    value={filters.position}
+                    onChange={(e) =>
+                      handleFilterChange("position", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">All Positions</option>
+                    <option value="Left">Left</option>
+                    <option value="Right">Right</option>
+                  </select>
+                </div>
               </div>
               <div className="mt-4">
                 <button
@@ -417,37 +364,17 @@ const ViewMember = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-600 text-white">
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Sl No.
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Member Id
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Sponsor Code
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Sponsor Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Package
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Phone Number
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Password
-                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Sl No.</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Member Id</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Sponsor Code</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Sponsor Name</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Package</th>
                 <th className="px-4 py-3 text-left text-sm font-medium">DOJ</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Active Status
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Position
-                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Topup Date</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Topup Amount</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Position</th>
               </tr>
             </thead>
             <tbody>
@@ -460,16 +387,14 @@ const ViewMember = () => {
                     {startIndex + index + 1}
                   </td>
                   <td className="px-4 py-3 text-sm text-blue-600 font-medium">
-                    {member.memberId}
+                    {member.member_id}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {member.name}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{member.name}</td>
                   <td className="px-4 py-3 text-sm text-blue-600">
-                    {member.sponsorCode}
+                    {member.sponsor_code}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
-                    {member.sponsorName}
+                    {member.sponsor_name}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <span
@@ -487,60 +412,39 @@ const ViewMember = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
-                    {member.phoneNumber}
+                    {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
-                    {member.password}
+                    {member.topup_date
+                      ? new Date(member.topup_date).toLocaleDateString("en-GB")
+                      : "N/A"}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
-                    {new Date(member.doj).toLocaleDateString("en-GB")}
+                    {member.topup_amount || "0"}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        member.activeStatus === "Active"
+                        member.active_status
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {member.activeStatus}
+                      {member.active_status ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  {/* <td className="px-4 py-3 text-sm">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleAction("Update", member)}
-                        className="text-blue-600 hover:text-blue-800 p-1 rounded"
-                        title="Update"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() =>
-                          handleAction(
-                            member.activeStatus === "Active"
-                              ? "Block"
-                              : "Unblock",
-                            member
-                          )
-                        }
-                        className={`p-1 rounded ${
-                          member.activeStatus === "Active"
-                            ? "text-red-600 hover:text-red-800"
-                            : "text-green-600 hover:text-green-800"
-                        }`}
-                        title={
-                          member.activeStatus === "Active" ? "Block" : "Unblock"
-                        }
-                      >
-                        {member.activeStatus === "Active" ? (
-                          <Ban className="w-4 h-4" />
-                        ) : (
-                          <UserCheck className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                  </td> */}
+                  <td className="px-4 py-3 text-sm">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        member.position === "Left"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-orange-100 text-orange-800"
+                      }`}
+                    >
+                      {member.position || "N/A"}
+                    </span>
+                  </td>
+                  
                 </tr>
               ))}
             </tbody>

@@ -734,6 +734,136 @@ app.get('/level-wise-team', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/my-member', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId; // For admin
+    const memberId = req.user.memberId; // For members
+    
+    // Get the current user's member ID (either admin or member)
+    let rootMemberId;
+    
+    if (memberId) {
+      // If logged in as member, get their member ID
+      const { data: member, error } = await supabase
+        .from('members')
+        .select('member_id')
+        .eq('id', memberId)
+        .single();
+      
+      if (error || !member) {
+        return res.status(404).json({ error: 'Member not found' });
+      }
+      rootMemberId = member.member_id;
+    } else if (userId) {
+      // If logged in as admin, get all members
+      rootMemberId = null;
+    } else {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Recursive function to get all downline members
+    async function getDownlineMembers(sponsorId) {
+      // Get direct referrals
+      const { data: directMembers, error } = await supabase
+        .from('members')
+        .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, active_status, position')
+        .eq('sponsor_code', sponsorId);
+
+      if (error || !directMembers) return [];
+
+      let allMembers = [...directMembers];
+      
+      // Recursively get downline for each direct member
+      for (const member of directMembers) {
+        const downline = await getDownlineMembers(member.member_id);
+        allMembers = allMembers.concat(downline);
+      }
+
+      return allMembers;
+    }
+
+    // Get all members (either all for admin or downline for member)
+    let members;
+    if (rootMemberId) {
+      // Get the downline for a member (including the member themselves)
+      members = await getDownlineMembers(rootMemberId);
+      // Add the root member if not already included
+      const { data: rootMember, error: rootError } = await supabase
+        .from('members')
+        .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, active_status, position')
+        .eq('member_id', rootMemberId)
+        .single();
+      if (!rootError && rootMember) {
+        members = [rootMember, ...members.filter(m => m.member_id !== rootMemberId)];
+      }
+    } else {
+      // Admin gets all members
+      const { data: allMembers, error } = await supabase
+        .from('members')
+        .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, active_status, position');
+      
+      if (error) throw error;
+      members = allMembers;
+    }
+
+    res.json({
+      members,
+      total: members.length
+    });
+  } catch (error) {
+    console.error('Get my member error:', error);
+    res.status(500).json({ error: 'Failed to fetch members' });
+  }
+});
+
+// Add this new endpoint to your existing server code
+app.get('/direct-referrals', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId; // From JWT token
+
+    // Get the logged-in member's member_id
+    const { data: currentMember, error: memberError } = await supabase
+      .from('members')
+      .select('member_id')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !currentMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    const sponsorCode = currentMember.member_id;
+
+    // Fetch only direct referrals
+    const { data: directMembers, error, count } = await supabase
+      .from('members')
+      .select('id, member_id, name, sponsor_code, package, date_of_joining, active_status, position')
+      .eq('sponsor_code', sponsorCode);
+
+    if (error) throw error;
+
+    // Format the response to match the required fields
+    const formattedMembers = directMembers.map(member => ({
+      member_id: member.member_id,
+      member_name: member.name,
+      position: member.position || 'N/A', // Default to 'N/A' if not set
+      date_of_joining: member.date_of_joining,
+      topup_date: null, // Not in schema, set to null for now
+      topup_amount: null, // Not in schema, set to null for now
+      package: member.package,
+      status: member.active_status ? 'Active' : 'Inactive'
+    }));
+
+    res.json({
+      members: formattedMembers,
+      total: count || 0
+    });
+  } catch (error) {
+    console.error('Get direct referrals error:', error);
+    res.status(500).json({ error: 'Failed to fetch direct referrals' });
+  }
+});
+
 app.get('/', (req, res) => {
   res.send('Server is running');
 });

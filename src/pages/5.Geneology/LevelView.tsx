@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { FileSpreadsheet, FileText, Printer } from "lucide-react";
-
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -95,6 +93,8 @@ const LevelTeam = () => {
       sponsorCode: member.sponsor_code,
       sponsorName: member.sponsor_name,
       doj: member.date_of_joining,
+      topup_date: null, // Placeholder since not in current schema
+      topup_amount: null, // Placeholder since not in current schema
       status: member.active_status ? "Active" : "InActive",
       level: member.level
     }))
@@ -283,6 +283,12 @@ const LevelTeam = () => {
                     D O J
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
+                    Topup Date
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
+                    Topup Amount
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
@@ -310,6 +316,12 @@ const LevelTeam = () => {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {member.doj}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {member.topup_date || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {member.topup_amount || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span

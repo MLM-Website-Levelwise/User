@@ -1,8 +1,7 @@
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Search,
   Filter,
@@ -12,15 +11,16 @@ import {
   User,
   UserCheck,
 } from "lucide-react";
+import axios from "axios";
 
 interface Member {
-  id: number;
-  sponsorId: string;
-  sponsorName: string;
-  memberId: string;
-  memberName: string;
-  position: "Left" | "Right";
-  dateOfJoining: string;
+  member_id: string;
+  member_name: string;
+  position: string;
+  date_of_joining: string;
+  topup_date: string | null;
+  topup_amount: number | null;
+  package: string;
   status: "Active" | "Inactive";
 }
 
@@ -32,130 +32,9 @@ interface Filters {
 }
 
 const DirectMember: React.FC = () => {
-  // Dummy data - replace with actual data from backend
-  const [members] = useState<Member[]>([
-    {
-      id: 1,
-      sponsorId: "SPO001",
-      sponsorName: "John Doe",
-      memberId: "MEM001",
-      memberName: "Alice Johnson",
-      position: "Left",
-      dateOfJoining: "2024-01-15",
-      status: "Active",
-    },
-    {
-      id: 2,
-      sponsorId: "SPO001",
-      sponsorName: "John Doe",
-      memberId: "MEM002",
-      memberName: "Bob Smith",
-      position: "Right",
-      dateOfJoining: "2024-01-20",
-      status: "Active",
-    },
-    {
-      id: 3,
-      sponsorId: "SPO002",
-      sponsorName: "Jane Wilson",
-      memberId: "MEM003",
-      memberName: "Charlie Brown",
-      position: "Left",
-      dateOfJoining: "2024-02-10",
-      status: "Inactive",
-    },
-    {
-      id: 4,
-      sponsorId: "SPO002",
-      sponsorName: "Jane Wilson",
-      memberId: "MEM004",
-      memberName: "Diana Prince",
-      position: "Right",
-      dateOfJoining: "2024-02-15",
-      status: "Active",
-    },
-    {
-      id: 5,
-      sponsorId: "SPO003",
-      sponsorName: "Mike Davis",
-      memberId: "MEM005",
-      memberName: "Eva Martinez",
-      position: "Left",
-      dateOfJoining: "2024-03-01",
-      status: "Active",
-    },
-    {
-      id: 6,
-      sponsorId: "SPO003",
-      sponsorName: "Mike Davis",
-      memberId: "MEM006",
-      memberName: "Frank Miller",
-      position: "Right",
-      dateOfJoining: "2024-03-05",
-      status: "Inactive",
-    },
-    {
-      id: 7,
-      sponsorId: "SPO004",
-      sponsorName: "Sarah Connor",
-      memberId: "MEM007",
-      memberName: "Grace Hopper",
-      position: "Left",
-      dateOfJoining: "2024-04-12",
-      status: "Active",
-    },
-    {
-      id: 8,
-      sponsorId: "SPO004",
-      sponsorName: "Sarah Connor",
-      memberId: "MEM008",
-      memberName: "Henry Ford",
-      position: "Right",
-      dateOfJoining: "2024-04-18",
-      status: "Active",
-    },
-    {
-      id: 9,
-      sponsorId: "SPO005",
-      sponsorName: "Tom Anderson",
-      memberId: "MEM009",
-      memberName: "Ivy League",
-      position: "Left",
-      dateOfJoining: "2024-05-02",
-      status: "Inactive",
-    },
-    {
-      id: 10,
-      sponsorId: "SPO005",
-      sponsorName: "Tom Anderson",
-      memberId: "MEM010",
-      memberName: "Jack Ryan",
-      position: "Right",
-      dateOfJoining: "2024-05-10",
-      status: "Active",
-    },
-    {
-      id: 11,
-      sponsorId: "SPO001",
-      sponsorName: "John Doe",
-      memberId: "MEM011",
-      memberName: "Kate Middleton",
-      position: "Left",
-      dateOfJoining: "2024-06-01",
-      status: "Active",
-    },
-    {
-      id: 12,
-      sponsorId: "SPO006",
-      sponsorName: "Lisa Park",
-      memberId: "MEM012",
-      memberName: "Leo Messi",
-      position: "Right",
-      dateOfJoining: "2024-06-05",
-      status: "Active",
-    },
-  ]);
-
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -168,23 +47,45 @@ const DirectMember: React.FC = () => {
     status: "",
   });
 
+  useEffect(() => {
+    const fetchDirectReferrals = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setError("Unauthorized: No token found");
+          return;
+        }
+
+        const response = await axios.get("http://localhost:5000/direct-referrals", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setMembers(response.data.members || []);
+      } catch (err) {
+        setError(err.response?.data?.error || "Failed to fetch direct referrals");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDirectReferrals();
+  }, []);
+
   // Filter logic
   const filteredMembers = useMemo(() => {
     return members.filter((member) => {
       const matchesDateFrom =
-        !filters.dateFrom || member.dateOfJoining >= filters.dateFrom;
+        !filters.dateFrom || member.date_of_joining >= filters.dateFrom;
       const matchesDateTo =
-        !filters.dateTo || member.dateOfJoining <= filters.dateTo;
+        !filters.dateTo || member.date_of_joining <= filters.dateTo;
       const matchesSponsorId =
         !filters.sponsorId ||
-        member.sponsorId
-          .toLowerCase()
-          .includes(filters.sponsorId.toLowerCase());
+        member.member_id.toLowerCase().includes(filters.sponsorId.toLowerCase());
       const matchesStatus = !filters.status || member.status === filters.status;
 
-      return (
-        matchesDateFrom && matchesDateTo && matchesSponsorId && matchesStatus
-      );
+      return matchesDateFrom && matchesDateTo && matchesSponsorId && matchesStatus;
     });
   }, [members, filters]);
 
@@ -215,10 +116,29 @@ const DirectMember: React.FC = () => {
     alert(`Exporting to ${type.toUpperCase()}...`);
   };
 
-  // Get unique sponsor IDs for filter dropdown
-  const uniqueSponsorIds = [
-    ...new Set(members.map((member) => member.sponsorId)),
-  ].sort();
+  // Get unique sponsor IDs for filter dropdown (using member_id as sponsorId)
+  const uniqueSponsorIds = [...new Set(members.map((member) => member.member_id))].sort();
+
+  if (loading) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading members...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p>Error: {error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -339,7 +259,7 @@ const DirectMember: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     <User className="inline w-4 h-4 mr-1" />
-                    Sponsor ID
+                    Member ID
                   </label>
                   <select
                     value={filters.sponsorId}
@@ -348,10 +268,10 @@ const DirectMember: React.FC = () => {
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">All Sponsors</option>
-                    {uniqueSponsorIds.map((sponsorId) => (
-                      <option key={sponsorId} value={sponsorId}>
-                        {sponsorId}
+                    <option value="">All Members</option>
+                    {uniqueSponsorIds.map((memberId) => (
+                      <option key={memberId} value={memberId}>
+                        {memberId}
                       </option>
                     ))}
                   </select>
@@ -398,22 +318,25 @@ const DirectMember: React.FC = () => {
                   Sl No.
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium">
-                  Sponsor ID
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Sponsor Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
                   Member ID
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium">
                   Member Name
                 </th>
                 <th className="px-4 py-3 text-center text-sm font-medium">
-                  Left/Right
+                  Position
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-medium">
                   Date of Joining
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Topup Date
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Topup Amount
+                </th>
+                <th className="px-4 py-3 text-center text-sm font-medium">
+                  Package
                 </th>
                 <th className="px-4 py-3 text-center text-sm font-medium">
                   Status
@@ -424,7 +347,7 @@ const DirectMember: React.FC = () => {
               {paginatedMembers.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-4 py-8 text-center text-gray-500"
                   >
                     No members found matching your criteria
@@ -433,23 +356,17 @@ const DirectMember: React.FC = () => {
               ) : (
                 paginatedMembers.map((member, index) => (
                   <tr
-                    key={member.id}
+                    key={member.member_id}
                     className="border-b border-gray-200 hover:bg-gray-50"
                   >
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {startIndex + index + 1}
                     </td>
                     <td className="px-4 py-3 text-sm text-blue-600 font-medium">
-                      {member.sponsorId}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.sponsorName}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-blue-600 font-medium">
-                      {member.memberId}
+                      {member.member_id}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                      {member.memberName}
+                      {member.member_name}
                     </td>
                     <td className="px-4 py-3 text-sm text-center">
                       <span
@@ -463,9 +380,30 @@ const DirectMember: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
-                      {new Date(member.dateOfJoining).toLocaleDateString(
+                      {new Date(member.date_of_joining).toLocaleDateString(
                         "en-GB"
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {member.topup_date || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {member.topup_amount || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-center">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          member.package === "Premium"
+                            ? "bg-purple-100 text-purple-800"
+                            : member.package === "Gold"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : member.package === "Silver"
+                            ? "bg-gray-100 text-gray-800"
+                            : "bg-blue-100 text-blue-800"
+                        }`}
+                      >
+                        {member.package}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-center">
                       <span

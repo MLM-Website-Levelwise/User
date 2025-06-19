@@ -515,6 +515,225 @@ app.patch('/members/:id/status', authenticateToken, async (req, res) => {
 });
 
 
+
+// Member login endpoint
+app.post('/member-login', async (req, res) => {
+  try {
+    const { member_id, password } = req.body;
+
+    if (!member_id || !password) {
+      return res.status(400).json({ error: 'Member ID and password are required' });
+    }
+
+    // Find member by member_id
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('*')
+      .eq('member_id', member_id)
+      .single();
+
+    if (memberError || !member) {
+      console.error('Member lookup error:', memberError);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Check password (plain text comparison as shown in your DB)
+    if (password !== member.password) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ memberId: member.id, member_id: member.member_id }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.json({
+      message: 'Login successful',
+      member: {
+        id: member.id,
+        member_id: member.member_id,
+        name: member.name,
+        sponsor_code: member.sponsor_code,
+        package: member.package
+      },
+      token
+    });
+  } catch (error) {
+    console.error('Member login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get member details endpoint
+app.get('/member-details', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId; // From JWT token
+
+    const { data: member, error } = await supabase
+      .from('members')
+      .select('id, member_id, name, sponsor_code, package')
+      .eq('id', memberId)
+      .single();
+
+    if (error || !member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    res.json(member);
+  } catch (error) {
+    console.error('Member details error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Recursive function to count downline members
+async function countDownline(memberId, count = 0) {
+  // First get all direct referrals of this member
+  const { data: directMembers, error } = await supabase
+    .from('members')
+    .select('id, member_id')
+    .eq('sponsor_code', memberId);
+
+  if (error || !directMembers) return count;
+
+  // Add direct members to count
+  count += directMembers.length;
+
+  // Recursively count downline for each direct member
+  for (const member of directMembers) {
+    count = await countDownline(member.member_id, count);
+  }
+
+  return count;
+}
+
+// Updated member-dashboard endpoint
+app.get('/member-dashboard', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId;
+    const memberIdStr = req.user.member_id; // Make sure this is in your JWT
+
+    // 1. Get basic member info
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('id, member_id, name, active_status, package, sponsor_code')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // 2. Get sponsor count (direct referrals)
+    const { count: sponsorCount } = await supabase
+      .from('members')
+      .select('*', { count: 'exact', head: true })
+      .eq('sponsor_code', member.member_id);
+
+    // 3. Get downline count (recursive)
+    const downlineCount = await countDownline(member.member_id);
+
+    // 4. Get business volumes (simplified example)
+    const leftBusiness = 1250;
+    const rightBusiness = 1250;
+
+    res.json({
+      member: {
+        id: member.id,
+        member_id: member.member_id,
+        name: member.name,
+        status: member.active_status ? 'ACTIVE' : 'INACTIVE',
+        package: member.package,
+        sponsor_code: member.sponsor_code
+      },
+      counts: {
+        sponsor: sponsorCount || 0,
+        downline: downlineCount || 0
+      },
+      business: {
+        left: leftBusiness,
+        right: rightBusiness,
+        difference: Math.abs(leftBusiness - rightBusiness)
+      },
+      investments: {
+        self: 1250,
+        team: 2500
+      },
+      balances: {
+        fund: 0,
+        working: 28.2,
+        prev_working: 0
+      }
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get level-wise team data
+app.get('/level-wise-team', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId;
+    const memberIdStr = req.user.member_id;
+
+    // First get the logged-in member's details
+    const { data: currentMember, error: memberError } = await supabase
+      .from('members')
+      .select('id, member_id, name')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !currentMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Recursive function to get all downline members with levels
+    async function getDownlineMembers(sponsorId, currentLevel = 1, maxLevel = 6) {
+      if (currentLevel > maxLevel) return [];
+
+      const { data: directMembers, error } = await supabase
+        .from('members')
+        .select('id, member_id, name, sponsor_code, sponsor_name, date_of_joining, active_status')
+        .eq('sponsor_code', sponsorId);
+
+      if (error || !directMembers) return [];
+
+      let members = [];
+      for (const member of directMembers) {
+        const memberWithLevel = {
+          ...member,
+          level: currentLevel,
+          doj: member.date_of_joining,
+          status: member.active_status ? 'Active' : 'InActive'
+        };
+        members.push(memberWithLevel);
+        
+        // Recursively get their downline
+        const downline = await getDownlineMembers(member.member_id, currentLevel + 1, maxLevel);
+        members = members.concat(downline);
+      }
+
+      return members;
+    }
+
+    // Get all downline members up to 6 levels deep
+    const downlineMembers = await getDownlineMembers(currentMember.member_id);
+
+    res.json({
+      currentMember: {
+        id: currentMember.id,
+        member_id: currentMember.member_id,
+        name: currentMember.name,
+        level: 0,
+        status: 'Active'
+      },
+      teamMembers: downlineMembers
+    });
+  } catch (error) {
+    console.error('Level team error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/', (req, res) => {
   res.send('Server is running');
 });

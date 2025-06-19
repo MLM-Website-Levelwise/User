@@ -1,22 +1,35 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import axios from "axios";
 
 const Login = () => {
-  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [credentials, setCredentials] = useState({ member_id: "", password: "" });
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simple authentication - in real app this would call an API
-    if (credentials.username && credentials.password) {
-      // Store login state in localStorage for demo purposes
-      localStorage.setItem("isLoggedIn", "true");
-      navigate("/dashboard");
+    setError("");
+    
+    try {
+      const response = await axios.post("http://localhost:5000/member-login", {
+        member_id: credentials.member_id,
+        password: credentials.password
+      });
+
+      if (response.data.token) {
+        // Store token and member data
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("member", JSON.stringify(response.data.member));
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      setError("Invalid member ID or password");
+      console.error("Login error:", err);
     }
   };
 
@@ -34,15 +47,20 @@ const Login = () => {
           <CardDescription>Enter your credentials to access your dashboard</CardDescription>
         </CardHeader>
         <CardContent>
+          {error && (
+            <div className="mb-4 p-2 bg-red-100 text-red-700 rounded text-sm">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username / Email</Label>
+              <Label htmlFor="member_id">Member ID</Label>
               <Input
-                id="username"
+                id="member_id"
                 type="text"
-                value={credentials.username}
-                onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                placeholder="Enter your username or email"
+                value={credentials.member_id}
+                onChange={(e) => setCredentials({ ...credentials, member_id: e.target.value })}
+                placeholder="Enter your member ID"
                 required
               />
             </div>

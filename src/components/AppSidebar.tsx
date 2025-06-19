@@ -209,6 +209,18 @@ export function AppSidebar() {
     );
   };
 
+  const handleLogout = () => {
+    // Clear auth data
+    localStorage.removeItem("token");
+    localStorage.removeItem("member");
+    
+    // Redirect to login
+    navigate("/login");
+    
+    // Optional: Refresh the page to clear any state
+    window.location.reload();
+  };
+
   const handleNavigate = (path?: string, title?: string) => {
     if (path) {
       navigate(path);
@@ -335,7 +347,10 @@ export function AppSidebar() {
             <Power className="w-4 h-4 text-white/60" />
             <span className="text-sm text-white/60">Pwd</span>
           </div>
-          <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+          <button 
+            onClick={handleLogout}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
             <LogOut className="w-4 h-4 text-white/60" />
           </button>
         </div>

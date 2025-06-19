@@ -5,168 +5,52 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 
-const LevelTeam = () => {
-  // Dummy data with hierarchical structure
-  const allTeamData = [
-    {
-      id: 1,
-      memberId: "100001",
-      member: "John Admin",
-      sponsorCode: "000000",
-      sponsorName: "Root",
-      doj: "01/01/2020",
-      status: "Active",
-      level: 1,
-    },
-    {
-      id: 2,
-      memberId: "100002",
-      member: "Sarah Manager",
-      sponsorCode: "100001",
-      sponsorName: "John Admin",
-      doj: "15/02/2020",
-      status: "Active",
-      level: 2,
-    },
-    {
-      id: 3,
-      memberId: "100003",
-      member: "Mike Johnson",
-      sponsorCode: "100001",
-      sponsorName: "John Admin",
-      doj: "20/03/2020",
-      status: "Active",
-      level: 2,
-    },
-    {
-      id: 4,
-      memberId: "100004",
-      member: "Emma Wilson",
-      sponsorCode: "100002",
-      sponsorName: "Sarah Manager",
-      doj: "10/04/2020",
-      status: "Active",
-      level: 3,
-    },
-    {
-      id: 5,
-      memberId: "100005",
-      member: "David Brown",
-      sponsorCode: "100002",
-      sponsorName: "Sarah Manager",
-      doj: "25/04/2020",
-      status: "InActive",
-      level: 3,
-    },
-    {
-      id: 6,
-      memberId: "100006",
-      member: "Lisa Davis",
-      sponsorCode: "100003",
-      sponsorName: "Mike Johnson",
-      doj: "05/05/2020",
-      status: "Active",
-      level: 3,
-    },
-    {
-      id: 7,
-      memberId: "100007",
-      member: "Tom Anderson",
-      sponsorCode: "100004",
-      sponsorName: "Emma Wilson",
-      doj: "15/06/2020",
-      status: "Active",
-      level: 4,
-    },
-    {
-      id: 8,
-      memberId: "100008",
-      member: "Anna Taylor",
-      sponsorCode: "100004",
-      sponsorName: "Emma Wilson",
-      doj: "20/06/2020",
-      status: "InActive",
-      level: 4,
-    },
-    {
-      id: 9,
-      memberId: "100009",
-      member: "Chris Martin",
-      sponsorCode: "100005",
-      sponsorName: "David Brown",
-      doj: "01/07/2020",
-      status: "Active",
-      level: 4,
-    },
-    {
-      id: 10,
-      memberId: "100010",
-      member: "Jessica Lee",
-      sponsorCode: "100006",
-      sponsorName: "Lisa Davis",
-      doj: "10/07/2020",
-      status: "Active",
-      level: 4,
-    },
-    {
-      id: 11,
-      memberId: "100011",
-      member: "Robert Clark",
-      sponsorCode: "100007",
-      sponsorName: "Tom Anderson",
-      doj: "15/08/2020",
-      status: "Active",
-      level: 5,
-    },
-    {
-      id: 12,
-      memberId: "100012",
-      member: "Maria Garcia",
-      sponsorCode: "100008",
-      sponsorName: "Anna Taylor",
-      doj: "20/08/2020",
-      status: "InActive",
-      level: 5,
-    },
-    {
-      id: 13,
-      memberId: "100013",
-      member: "James Wilson",
-      sponsorCode: "100009",
-      sponsorName: "Chris Martin",
-      doj: "25/08/2020",
-      status: "Active",
-      level: 5,
-    },
-    {
-      id: 14,
-      memberId: "100014",
-      member: "Linda Moore",
-      sponsorCode: "100010",
-      sponsorName: "Jessica Lee",
-      doj: "30/08/2020",
-      status: "Active",
-      level: 5,
-    },
-    {
-      id: 15,
-      memberId: "100015",
-      member: "Kevin White",
-      sponsorCode: "100011",
-      sponsorName: "Robert Clark",
-      doj: "05/09/2020",
-      status: "InActive",
-      level: 6,
-    },
-  ];
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
-  const [filteredData, setFilteredData] = useState(allTeamData);
+const LevelTeam = () => {
+  const [teamData, setTeamData] = useState({
+    currentMember: null,
+    teamMembers: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchTeamData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const response = await axios.get("http://localhost:5000/level-wise-team", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        setTeamData(response.data);
+      } catch (err) {
+        console.error("Failed to fetch team data:", err);
+        setError("Failed to load team data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeamData();
+  }, [navigate]);
+
   const [filters, setFilters] = useState({
-    // memberCode: "",
     dateFrom: "",
     dateTo: "",
     levelNo: "All",
   });
+
   const [entriesPerPage, setEntriesPerPage] = useState(20);
   const [exportFormat, setExportFormat] = useState("All");
 
@@ -178,50 +62,72 @@ const LevelTeam = () => {
   };
 
   const handleSubmit = () => {
-    let filtered = allTeamData;
-
-    // Filter by member code
-    // if (filters.memberCode.trim()) {
-    //   filtered = filtered.filter(
-    //     (item) =>
-    //       item.memberId
-    //         .toLowerCase()
-    //         .includes(filters.memberCode.toLowerCase()) ||
-    //       item.member.toLowerCase().includes(filters.memberCode.toLowerCase())
-    //   );
-    // }
-
-    // Filter by date range
-    if (filters.dateFrom) {
-      filtered = filtered.filter((item) => {
-        const itemDate = new Date(item.doj.split("/").reverse().join("-"));
-        const fromDate = new Date(filters.dateFrom);
-        return itemDate >= fromDate;
-      });
-    }
-
-    if (filters.dateTo) {
-      filtered = filtered.filter((item) => {
-        const itemDate = new Date(item.doj.split("/").reverse().join("-"));
-        const toDate = new Date(filters.dateTo);
-        return itemDate <= toDate;
-      });
-    }
-
-    // Filter by level
-    if (filters.levelNo !== "All") {
-      filtered = filtered.filter(
-        (item) => item.level === parseInt(filters.levelNo)
-      );
-    }
-
-    setFilteredData(filtered);
+    // Filtering will be done on the already loaded data
   };
 
   const handleExport = (format) => {
     console.log(`Exporting data in ${format} format`);
     // Export functionality would be implemented here
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div>Loading team data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
+
+  // Combine current member with team members for display
+  const allTeamData = [
+    ...teamData.teamMembers.map(member => ({
+      id: member.id,
+      memberId: member.member_id,
+      member: member.name,
+      sponsorCode: member.sponsor_code,
+      sponsorName: member.sponsor_name,
+      doj: member.date_of_joining,
+      status: member.active_status ? "Active" : "InActive",
+      level: member.level
+    }))
+  ];
+
+  // Apply filters
+  let filteredData = allTeamData;
+
+  // Filter by date range
+  if (filters.dateFrom) {
+    filteredData = filteredData.filter((item) => {
+      if (item.doj === "N/A") return true;
+      const itemDate = new Date(item.doj.split("/").reverse().join("-"));
+      const fromDate = new Date(filters.dateFrom);
+      return itemDate >= fromDate;
+    });
+  }
+
+  if (filters.dateTo) {
+    filteredData = filteredData.filter((item) => {
+      if (item.doj === "N/A") return true;
+      const itemDate = new Date(item.doj.split("/").reverse().join("-"));
+      const toDate = new Date(filters.dateTo);
+      return itemDate <= toDate;
+    });
+  }
+
+  // Filter by level
+  if (filters.levelNo !== "All") {
+    filteredData = filteredData.filter(
+      (item) => item.level === parseInt(filters.levelNo)
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -231,26 +137,14 @@ const LevelTeam = () => {
           <h1 className="text-xl font-semibold">
             List of Levelwise Team Member(s)
           </h1>
+          <p className="text-sm mt-1">
+            Viewing team for: {teamData.currentMember.name} ({teamData.currentMember.member_id})
+          </p>
         </div>
 
         {/* Filter Section */}
         <div className="bg-white p-6 border-l border-r border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-            {/* <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Member Code
-              </label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter member code"
-                value={filters.memberCode}
-                onChange={(e) =>
-                  handleFilterChange("memberCode", e.target.value)
-                }
-              />
-            </div> */}
-
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Date From
@@ -285,6 +179,7 @@ const LevelTeam = () => {
                 onChange={(e) => handleFilterChange("levelNo", e.target.value)}
               >
                 <option value="All">All</option>
+                <option value="0">You (0)</option>
                 <option value="1">1</option>
                 <option value="2">2</option>
                 <option value="3">3</option>
@@ -309,7 +204,7 @@ const LevelTeam = () => {
         <div className="bg-white px-6 py-4 border-l border-r border-gray-200 flex justify-between items-center">
           <div>
             <span className="text-gray-700 font-medium">
-              Total Team Member ({filteredData.length})
+              Total Team Members ({filteredData.length})
             </span>
           </div>
 

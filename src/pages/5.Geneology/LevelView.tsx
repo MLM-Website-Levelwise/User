@@ -95,6 +95,7 @@ const LevelTeam = () => {
       doj: member.date_of_joining,
       topup_date: null, // Placeholder since not in current schema
       topup_amount: null, // Placeholder since not in current schema
+      purchase_amount: null, // Placeholder for new purchase amount
       status: member.active_status ? "Active" : "InActive",
       level: member.level
     }))
@@ -289,6 +290,9 @@ const LevelTeam = () => {
                     Topup Amount
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
+                    Purchase Amount
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
@@ -322,6 +326,9 @@ const LevelTeam = () => {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {member.topup_amount || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {member.purchase_amount || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span

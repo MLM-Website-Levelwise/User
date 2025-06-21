@@ -864,8 +864,158 @@ app.get('/direct-referrals', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/', (req, res) => {
-  res.send('Server is running');
+
+//funds
+app.post('/wallet-transfer', authenticateToken, async (req, res) => {
+  try {
+    const { member_id, transfer_type, amount } = req.body;
+    const adminId = req.user.userId; // This is a UUID
+
+    // No need to parse as integer - keep as UUID string
+    const { data: admin, error: adminError } = await supabase
+      .from('admin')
+      .select('email')
+      .eq('id', adminId)
+      .single();
+
+    if (adminError) throw adminError;
+
+    const { data: transaction, error: transactionError } = await supabase
+      .from('wallet_transactions')
+      .insert({
+        member_id,
+        transaction_type: transfer_type,
+        amount: parseFloat(amount),
+        initiated_by: 'admin',
+        initiator_id: adminId, // Store as UUID
+        initiator_email: admin.email
+      })
+      .select()
+      .single();
+
+    if (transactionError) throw transactionError;
+
+    res.json({
+      message: 'Wallet transfer successful',
+      transaction
+    });
+  } catch (error) {
+    console.error('Wallet transfer error:', error);
+    res.status(500).json({ error: 'Failed to process wallet transfer' });
+  }
+});
+
+// Add this to your backend (server.js or similar)
+app.get('/admin-wallet-transactions', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, memberId, dateFrom, dateTo, transferType } = req.query;
+    const adminId = req.user.userId; // Get admin ID from token
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('wallet_transactions')
+      .select(`
+        id,
+        member_id,
+        members!inner(name),
+        amount,
+        transaction_date,
+        transaction_type,
+        notes,
+        initiator_email
+      `, { count: 'exact' })
+      .eq('initiator_id', adminId) // Only show transactions initiated by this admin
+      .order('transaction_date', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    // Add additional filters
+    if (memberId) {
+      query = query.ilike('member_id', `%${memberId}%`);
+    }
+    if (dateFrom) {
+      query = query.gte('transaction_date', dateFrom);
+    }
+    if (dateTo) {
+      query = query.lte('transaction_date', `${dateTo}T23:59:59`);
+    }
+    if (transferType) {
+      query = query.eq('transaction_type', transferType);
+    }
+
+    const { data: transactions, error, count } = await query;
+
+    if (error) throw error;
+
+    // Format the response
+    const formattedTransactions = transactions.map(txn => ({
+      id: txn.id,
+      memberId: txn.member_id,
+      memberName: txn.members.name,
+      amount: txn.amount,
+      date: txn.transaction_date,
+      transferType: txn.transaction_type === 'main' ? 'Main Wallet' : 'Re Top-up Wallet',
+      status: 'Success',
+      notes: txn.notes,
+      initiatorEmail: txn.initiator_email
+    }));
+
+    res.json({
+      transactions: formattedTransactions,
+      total: count,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(count / limit)
+    });
+  } catch (error) {
+    console.error('Error fetching admin wallet transactions:', error);
+    res.status(500).json({ error: 'Failed to fetch transactions' });
+  }
+});
+
+// Add this to your backend (server.js or similar)
+app.put('/update-wallet-transaction', authenticateToken, async (req, res) => {
+  try {
+    const { transactionId, newAmount, adjustmentType, notes } = req.body;
+    const adminId = req.user.userId; // Get admin ID from token
+
+    // Validate input
+    if (!transactionId || newAmount === undefined || !adjustmentType) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // First verify the transaction belongs to this admin
+    const { data: originalTransaction, error: fetchError } = await supabase
+      .from('wallet_transactions')
+      .select('*')
+      .eq('id', transactionId)
+      .eq('initiator_id', adminId)
+      .single();
+
+    if (fetchError || !originalTransaction) {
+      return res.status(404).json({ error: 'Transaction not found or unauthorized' });
+    }
+
+    // Update the transaction
+    const { data: updatedTransaction, error: updateError } = await supabase
+      .from('wallet_transactions')
+      .update({
+        amount: parseFloat(newAmount),
+        notes: notes || `Amount ${adjustmentType}ed by admin (${originalTransaction.initiator_email})`
+      })
+      .eq('id', transactionId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    res.json({
+      message: 'Transaction updated successfully',
+      transaction: updatedTransaction
+    });
+  } catch (error) {
+    console.error('Error updating transaction:', error);
+    res.status(500).json({ error: 'Failed to update transaction' });
+  }
 });
 
 

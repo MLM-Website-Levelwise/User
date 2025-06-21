@@ -1,33 +1,14 @@
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
-} from "@/components/ui/sidebar";
-
-import {
   Home,
   ShoppingCart,
-  Share2,
   Settings,
   Pin,
   Users,
-  CreditCard,
   DollarSign,
   Briefcase,
   LogOut,
   Power,
   ChevronDown,
-  Download,
   UserCheck,
   Lock,
   Upload,
@@ -35,23 +16,17 @@ import {
   History,
   UserPlus,
   List,
-  UsersIcon,
-  TreePine,
+  User,
+  Wallet,
 } from "lucide-react";
 
-import { useState } from "react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 // Define types
 type SubMenuItem = {
   title: string;
   icon: React.ElementType;
-  isActive?: boolean;
   path?: string;
 };
 
@@ -59,11 +34,11 @@ type MenuItem = {
   title: string;
   icon: React.ElementType;
   badge?: string;
-  isActive?: boolean;
-  submenu?: SubMenuItem[] | boolean;
+  submenu?: SubMenuItem[];
   path?: string;
 };
 
+// Menu Configuration
 const menuItems: MenuItem[] = [
   {
     title: "Dashboard",
@@ -82,7 +57,7 @@ const menuItems: MenuItem[] = [
       },
       {
         title: "Direct Member List",
-        icon: UsersIcon,
+        icon: User,
         path: "/member/direct-list",
       },
     ],
@@ -91,8 +66,29 @@ const menuItems: MenuItem[] = [
     title: "Top-Up",
     icon: Pin,
     submenu: [
-      { title: "ID Activation", icon: Eye, path: "/top-up/idactivation" },
-      { title: "Top-Up Statement", icon: History, path: "/top-up/statement" },
+      { title: "Self Activation", icon: Eye, path: "/top-up/idactivation" },
+      {
+        title: "Member Activation",
+        icon: Eye,
+        path: "/top-up/memidactivation",
+      },
+      {
+        title: "Re Top-Up",
+        icon: Eye,
+        path: "/top-up/growth-retopup",
+      },
+      {
+        title: "Wallet Transfer",
+        icon: Wallet,
+        path: "/top-up/wallet-transfer",
+      },
+      { title: "Self Report", icon: History, path: "/top-up/self-statement" },
+
+      {
+        title: "Member Report",
+        icon: History,
+        path: "/top-up/member-statement",
+      },
     ],
   },
   {
@@ -169,37 +165,41 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
-  // {
-  //   title: "Purchase",
-  //   icon: CreditCard,
-  //   path: "/purchase",
-  // },
-  // {
-  //   title: "Bonus Income",
-  //   icon: DollarSign,
-  //   path: "/bonus-income",
-  // },
-  // {
-  //   title: "Business (L : R)",
-  //   icon: Briefcase,
-  //   path: "/business",
-  // },
-  // {
-  //   title: "Withdraw",
-  //   icon: LogOut,
-  //   path: "/withdraw",
-  // },
 ];
 
 export function AppSidebar() {
-  const [activeItem, setActiveItem] = useState("Dashboard");
-  const [expandedItems, setExpandedItems] = useState<string[]>([
-    "Dashboard",
-    "Settings",
-    "PIN",
-    "Mass Influencer",
-  ]);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  // Function to check if a path is active
+  const isPathActive = (path?: string) => {
+    if (!path) return false;
+    return location.pathname === path;
+  };
+
+  // Function to check if a main menu item should be active (if any of its children are active)
+  const isMainItemActive = (item: MenuItem) => {
+    if (item.path && isPathActive(item.path)) return true;
+    if (item.submenu) {
+      return item.submenu.some((subItem) => isPathActive(subItem.path));
+    }
+    return false;
+  };
+
+  // Auto-expand menu if one of its children is active
+  useEffect(() => {
+    menuItems.forEach((item) => {
+      if (
+        item.submenu &&
+        item.submenu.some((subItem) => isPathActive(subItem.path))
+      ) {
+        setExpandedItems((prev) =>
+          prev.includes(item.title) ? prev : [...prev, item.title]
+        );
+      }
+    });
+  }, [location.pathname]);
 
   const toggleExpanded = (itemTitle: string) => {
     setExpandedItems((prev) =>
@@ -209,137 +209,161 @@ export function AppSidebar() {
     );
   };
 
-  const handleNavigate = (path?: string, title?: string) => {
+  const handleNavigate = (path?: string) => {
     if (path) {
       navigate(path);
-      if (title) setActiveItem(title);
     }
   };
 
   return (
-    <Sidebar className="bg-primary text-white border-r-0">
-      <SidebarHeader className="border-b border-white/20 p-4">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <span className="text-primary font-bold text-xl">P</span>
+    <>
+      {/* Sidebar */}
+      <div className="w-64 h-screen bg-blue-900 text-white flex flex-col shadow-xl fixed left-0 top-0 z-50">
+        {/* Header */}
+        <div className="p-4 border-b border-blue-800">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-lg">
+              <span className="text-blue-900 font-bold text-lg">P</span>
+            </div>
+            <span className="text-lg font-semibold">Prime Networks</span>
           </div>
-          <span className="text-lg font-bold text-white">
-            Prime Networks Inc
-          </span>
         </div>
-      </SidebarHeader>
 
-      <SidebarContent className="px-4 overflow-visible">
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-yellow-400 font-semibold mb-4">
-            General
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {Array.isArray(item.submenu) ? (
-                    <Collapsible
-                      open={expandedItems.includes(item.title)}
-                      onOpenChange={() => toggleExpanded(item.title)}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton
-                          className={`w-full text-left p-3 rounded-lg transition-all ${
-                            activeItem === item.title
-                              ? "bg-white/20 text-white"
-                              : "text-white/80 hover:bg-white/10 hover:text-white"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center space-x-3">
-                              <item.icon className="w-5 h-5" />
-                              <span className="text-sm">{item.title}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {item.badge && (
-                                <span className="bg-yellow-400 text-black text-xs px-2 py-1 rounded-full font-semibold">
-                                  {item.badge}
-                                </span>
-                              )}
-                              <ChevronDown
-                                className={`w-4 h-4 transition-transform ${
-                                  expandedItems.includes(item.title)
-                                    ? "rotate-180"
-                                    : ""
-                                }`}
-                              />
-                            </div>
-                          </div>
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="overflow-visible">
-                        <SidebarMenuSub>
-                          {(item.submenu as SubMenuItem[]).map((subItem) => (
-                            <SidebarMenuSubItem key={subItem.title}>
-                              <SidebarMenuSubButton
-                                className={`flex items-center space-x-3 p-2 rounded-lg transition-all ${
-                                  subItem.isActive
-                                    ? "bg-yellow-500/20 text-yellow-400"
-                                    : "text-white/70 hover:bg-white/10 hover:text-white"
-                                }`}
-                                onClick={() =>
-                                  handleNavigate(subItem.path, subItem.title)
-                                }
-                              >
-                                <div className="w-2 h-2 rounded-full bg-current"></div>
-                                <span className="text-sm">{subItem.title}</span>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  ) : (
-                    <SidebarMenuButton
-                      onClick={() => handleNavigate(item.path, item.title)}
-                      className={`w-full text-left p-3 rounded-lg transition-all ${
-                        activeItem === item.title
-                          ? "bg-white/20 text-white"
-                          : "text-white/80 hover:bg-white/10 hover:text-white"
+        {/* Menu with custom scrollbar */}
+        <div className="flex-1 px-4 py-4 overflow-y-auto sidebar-scroll">
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `
+              .sidebar-scroll::-webkit-scrollbar {
+                width: 6px;
+              }
+              .sidebar-scroll::-webkit-scrollbar-track {
+                background: #1e3a8a;
+                border-radius: 3px;
+              }
+              .sidebar-scroll::-webkit-scrollbar-thumb {
+                background: #3b82f6;
+                border-radius: 3px;
+              }
+              .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+                background: #60a5fa;
+              }
+            `,
+            }}
+          />
+          <div className="space-y-2">
+            {menuItems.map((item) => (
+              <div key={item.title}>
+                {Array.isArray(item.submenu) ? (
+                  <div>
+                    <button
+                      onClick={() => toggleExpanded(item.title)}
+                      className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
+                        isMainItemActive(item)
+                          ? "bg-blue-800 text-white shadow-md"
+                          : "hover:bg-blue-800/50 text-white/90 hover:text-white"
                       }`}
                     >
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center space-x-3">
-                          <item.icon className="w-5 h-5" />
-                          <span className="text-sm">{item.title}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {item.badge && (
-                            <span className="bg-yellow-400 text-black text-xs px-2 py-1 rounded-full font-semibold">
-                              {item.badge}
-                            </span>
-                          )}
-                          {item.submenu === true && (
-                            <span className="text-white/60">›</span>
-                          )}
-                        </div>
+                      <div className="flex items-center space-x-3">
+                        <item.icon
+                          className={`w-5 h-5 ${
+                            isMainItemActive(item) ? "text-blue-300" : ""
+                          }`}
+                        />
+                        <span className="text-sm font-medium">
+                          {item.title}
+                        </span>
                       </div>
-                    </SidebarMenuButton>
-                  )}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          expandedItems.includes(item.title) ? "rotate-180" : ""
+                        } ${isMainItemActive(item) ? "text-blue-300" : ""}`}
+                      />
+                    </button>
 
-      <SidebarFooter className="border-t border-white/20 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Power className="w-4 h-4 text-white/60" />
-            <span className="text-sm text-white/60">Pwd</span>
+                    {/* Submenu */}
+                    {expandedItems.includes(item.title) && (
+                      <div className="mt-1 space-y-1">
+                        {item.submenu.map((subItem) => (
+                          <button
+                            key={subItem.title}
+                            onClick={() => handleNavigate(subItem.path)}
+                            className={`w-full text-left flex items-center space-x-3 px-3 py-2.5 pl-12 rounded-lg transition-all duration-200 group ${
+                              isPathActive(subItem.path)
+                                ? "bg-yellow-600/30 text-yellow-300 shadow-md border border-yellow-500/50"
+                                : "text-white/70 hover:bg-blue-800/30 hover:text-white hover:pl-14"
+                            }`}
+                          >
+                            <subItem.icon
+                              className={`w-4 h-4 ${
+                                isPathActive(subItem.path)
+                                  ? "text-yellow-300"
+                                  : ""
+                              }`}
+                            />
+                            <span className="text-sm">{subItem.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleNavigate(item.path)}
+                    className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-200 flex items-center group ${
+                      isPathActive(item.path)
+                        ? "bg-blue-800 text-white shadow-md"
+                        : "hover:bg-blue-800/50 text-white/90 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <item.icon
+                        className={`w-5 h-5 ${
+                          isPathActive(item.path) ? "text-blue-300" : ""
+                        }`}
+                      />
+                      <span className="text-sm font-medium">{item.title}</span>
+                    </div>
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
-          <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-            <LogOut className="w-4 h-4 text-white/60" />
+        </div>
+
+        {/* Footer */}
+        {/* <div className="p-4 border-t border-blue-800 mt-auto">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-2">
+              <Power className="w-4 h-4 text-white/60" />
+              <span className="text-sm text-white/60">Logout</span>
+            </div>
+            <button
+              className="p-2 bg-blue-800 hover:bg-red-500/80 border border-transparent rounded-lg transition-all duration-200"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4 text-white hover:text-red-100" />
+            </button>
+          </div>
+        </div> */}
+        <div className="p-4 border-t border-blue-800 mt-auto">
+          <button
+            className="w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all duration-200 hover:bg-red-500 group"
+            title="Logout"
+          >
+            <div className="flex items-center space-x-2">
+              <Power className="w-4 h-4 text-white/60 group-hover:text-white" />
+              <span className="text-sm text-white/60 group-hover:text-white">
+                Logout
+              </span>
+            </div>
+            <LogOut className="w-4 h-4 text-white/60 group-hover:text-white" />
           </button>
         </div>
-      </SidebarFooter>
-    </Sidebar>
+      </div>
+
+      {/* Spacer div to push content to the right of the sidebar */}
+      <div className="w-64 flex-shrink-0"></div>
+    </>
   );
 }

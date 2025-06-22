@@ -1019,6 +1019,273 @@ app.put('/update-wallet-transaction', authenticateToken, async (req, res) => {
 });
 
 
+//Member wallet
+// In your /member-wallet-balance endpoint:
+app.get('/member-wallet-balance', authenticateToken, async (req, res) => {
+  try {
+    const { member_id } = req.query;
+    
+    if (!member_id) {
+      return res.status(400).json({ error: 'member_id is required' });
+    }
+
+    // ONLY fetch Main Wallet transactions (exact match)
+    const { data: transactions, error } = await supabase
+      .from('wallet_transactions')
+      .select('amount')
+      .eq('member_id', member_id)
+      .eq('transaction_type', 'Main Wallet'); // Exact string match
+
+    if (error) throw error;
+
+    const balance = transactions.reduce((sum, txn) => sum + Number(txn.amount), 0);
+    
+    res.json({ 
+      success: true,
+      balance: balance,
+      transactions: transactions
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch balance'
+    });
+  }
+});
+
+// Handle self activation
+app.post('/self-activate', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.member_id;
+    const { planType, packageName, amount } = req.body;
+
+    // 1. Find the latest Main Wallet transaction
+    const { data: mainWallet, error: walletError } = await supabase
+      .from('wallet_transactions')
+      .select('*')
+      .eq('member_id', memberId)
+      .eq('transaction_type', 'Main Wallet')
+      .order('transaction_date', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (walletError) throw walletError;
+    if (!mainWallet) throw new Error('Main Wallet not found');
+
+    // 2. Calculate new balance
+    const newBalance = Number(mainWallet.amount) - Number(amount);
+    
+    // 3. Update the existing Main Wallet record
+    const { data: updatedWallet, error: updateError } = await supabase
+      .from('wallet_transactions')
+      .update({
+        amount: newBalance,
+        notes: `Deducted ${amount} for ${packageName || planType} activation`,
+        updated_at: new Date().toISOString() // Now this column exists
+      })
+      .eq('id', mainWallet.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // 4. Update member status
+    const { data: updatedMember, error: memberError } = await supabase
+      .from('members')
+      .update({
+        active_status: true,
+        package: planType === 'growth' ? packageName : planType,
+        updated_at: new Date().toISOString()
+      })
+      .eq('member_id', memberId)
+      .select()
+      .single();
+
+    if (memberError) throw memberError;
+
+    res.json({
+      success: true,
+      newBalance,
+      transaction: updatedWallet,
+      member: updatedMember
+    });
+
+  } catch (error) {
+    console.error('Activation error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+
+//activate member
+// Add this to your backend routes
+app.post('/activate-member', authenticateToken, async (req, res) => {
+  try {
+    const { memberId, planType, amount } = req.body;
+    const activatorId = req.user.member_id.toString();
+
+    // 1. Get LATEST Main Wallet balance
+    const { data: latestTx, error: txError } = await supabase
+      .from('wallet_transactions')
+      .select('amount')
+      .eq('member_id', activatorId)
+      .eq('transaction_type', 'Main Wallet')
+      .order('transaction_date', { ascending: false })
+      .limit(1);
+
+    if (txError || !latestTx.length) throw new Error('Wallet not found');
+    const currentBalance = latestTx[0].amount;
+
+    // 2. Calculate NEW balance
+    const newBalance = currentBalance - amount;
+    if (newBalance < 0) {
+      return res.status(400).json({ error: 'Insufficient funds' });
+    }
+
+    // 3. UPDATE existing Main Wallet record (no new row)
+    const { error: updateError } = await supabase
+      .from('wallet_transactions')
+      .update({
+        amount: newBalance,
+        notes: `Deducted ${amount} for ${planType} activation`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('member_id', activatorId)
+      .eq('transaction_type', 'Main Wallet')
+      .order('transaction_date', { ascending: false })
+      .limit(1);
+
+    if (updateError) throw updateError;
+
+    // 4. Activate member
+    await supabase
+      .from('members')
+      .update({ 
+        active_status: true,
+        package: planType 
+      })
+      .eq('member_id', memberId);
+
+    res.json({ 
+      success: true,
+      newBalance: newBalance
+    });
+
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+//re top up
+// Add to your server.js
+app.post('/re-top-up', authenticateToken, async (req, res) => {
+  try {
+    const { memberId, planType, amount, initiatorId } = req.body;
+
+    // ===== 1. UPDATE WALLET (SUBTRACT) =====
+    // Find latest Re Top-up Wallet balance
+    const { data: wallet, error: walletError } = await supabase
+      .from('wallet_transactions')
+      .select('*')
+      .eq('member_id', String(memberId))
+      .eq('transaction_type', 'Re Top-up Wallet')
+      .order('transaction_date', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (walletError) throw walletError;
+    if (!wallet) throw new Error('No Re Top-up Wallet found');
+
+    // Calculate new balance (200 - 25 = 175)
+    const newWalletBalance = Number(wallet.amount) - Number(amount);
+
+    // Update wallet transaction
+    const { error: walletUpdateError } = await supabase
+      .from('wallet_transactions')
+      .update({
+        amount: newWalletBalance,
+        notes: `Re-Top Up for ${planType}`,
+        transaction_date: new Date().toISOString()
+      })
+      .eq('id', wallet.id);
+
+    if (walletUpdateError) throw walletUpdateError;
+
+    // ===== 2. CREATE RE-TOP UP TRANSACTION (ADD) =====
+    const { data: newTopUp, error: topUpError } = await supabase
+      .from('re_top_up_transactions')
+      .insert([{
+        member_id: String(memberId),
+        plan_type: planType,
+        amount: amount,
+        transaction_date: new Date().toISOString(),
+        status: 'completed',
+        // position: 'left' // or your business logic
+      }])
+      .select()
+      .single();
+
+    if (topUpError) throw topUpError;
+
+    // ===== 3. RETURN SUCCESS =====
+    res.json({
+      success: true,
+      walletBalance: newWalletBalance,
+      topUpRecord: newTopUp
+    });
+
+  } catch (error) {
+    console.error('Re-Top Up Error:', {
+      message: error.message,
+      code: error.code,
+      details: error.details
+    });
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.get('/re-top-up-wallet-balance', authenticateToken, async (req, res) => {
+  try {
+    const { member_id } = req.query;
+    
+    if (!member_id) {
+      return res.status(400).json({ error: 'member_id is required' });
+    }
+
+    // Fetch ONLY Re-Top Up Wallet transactions
+    const { data: transactions, error } = await supabase
+      .from('wallet_transactions')
+      .select('amount')
+      .eq('member_id', member_id)
+      .eq('transaction_type', 'Re Top-up Wallet') // Exact string match
+      .order('transaction_date', { ascending: false });
+
+    if (error) throw error;
+
+    const balance = transactions.reduce((sum, txn) => sum + Number(txn.amount), 0);
+    
+    res.json({ 
+      success: true,
+      balance: balance,
+      transactions: transactions
+    });
+  } catch (error) {
+    console.error('Re-Top Up balance error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch Re-Top Up balance'
+    });
+  }
+});
+
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

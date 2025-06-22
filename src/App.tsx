@@ -12,8 +12,12 @@ import AddMember from "./pages/2.Member/AddMember";
 import DirectMembers from "./pages/2.Member/DirectMembers";
 import MemberList from "./pages/2.Member/MemberList";
 
-import IdActivation from "./pages/3.Top-Up/IDActivation";
+import SelfIdActivation from "./pages/3.Top-Up/SelfIdActivation";
+import SelfIdStatement from "./pages/3.Top-Up/SelfIdStatement";
+import MemActivation from "./pages/3.Top-Up/MemActivation";
 import TopUpStatement from "./pages/3.Top-Up/TopUpStatement";
+import GrowthReTopUp from "./pages/3.Top-Up/ReTopUp";
+import WalletTransfer from "./pages/3.Top-Up/WalletTransfer";
 
 import SelfPurchase from "./pages/4.Purchase/SelfPurchase";
 import SelfPurchaseReport from "./pages/4.Purchase/SelfPurchaseReport";
@@ -47,8 +51,12 @@ const App = () => (
           <Route path="/geneology/level-wise-team" element={<LevelView />} />
           <Route path="/geneology/binary-view" element={<TreeView />} />
           {/* Top Up */}
-          <Route path="/top-up/idactivation" element={<IdActivation />} />
-          <Route path="/top-up/statement" element={<TopUpStatement />} />
+          <Route path="/top-up/idactivation" element={<SelfIdActivation />} />
+          <Route path="/top-up/memidactivation" element={<MemActivation />} />
+          <Route path="/top-up/growth-retopup" element={<GrowthReTopUp />} />
+          <Route path="/top-up/self-statement" element={<SelfIdStatement />} />
+          <Route path="/top-up/member-statement" element={<TopUpStatement />} />
+          <Route path="/top-up/wallet-transfer" element={<WalletTransfer />} />
           {/* Purchase */}
           <Route path="/purchase/self-purchase" element={<SelfPurchase />} />
           <Route

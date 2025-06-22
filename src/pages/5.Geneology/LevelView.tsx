@@ -25,7 +25,7 @@ const LevelTeam = () => {
           return;
         }
 
-        const response = await axios.get("http://localhost:5000/level-wise-team", {
+        const response = await axios.get("https://user-qn5p.onrender.com/level-wise-team", {
           headers: {
             Authorization: `Bearer ${token}`
           }

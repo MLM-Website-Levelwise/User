@@ -49,7 +49,7 @@ const ReTopUp = () => {
         });
 
         // Fetch Re-Top Up wallet balance
-        const response = await axios.get('http://localhost:5000/re-top-up-wallet-balance', {
+        const response = await axios.get('https://user-qn5p.onrender.com/re-top-up-wallet-balance', {
           headers: { Authorization: `Bearer ${token}` },
           params: { member_id: memberData.member_id }
         });
@@ -82,7 +82,7 @@ const ReTopUp = () => {
 
     // Force all IDs to strings
     const response = await axios.post(
-      "http://localhost:5000/re-top-up",
+      "https://user-qn5p.onrender.com/re-top-up",
       {
         memberId: String(memberData.member_id), // Force string
         planType: selectedPlan,

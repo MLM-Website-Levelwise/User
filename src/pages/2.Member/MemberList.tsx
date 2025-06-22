@@ -50,7 +50,7 @@ const ViewMember = () => {
           return;
         }
 
-        const response = await axios.get("http://localhost:5000/my-member", {
+        const response = await axios.get("https://user-qn5p.onrender.com/my-member", {
           headers: {
             Authorization: `Bearer ${token}`,
           },

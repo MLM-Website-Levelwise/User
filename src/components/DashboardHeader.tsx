@@ -28,7 +28,7 @@ export function DashboardHeader() {
           return;
         }
 
-        const response = await axios.get("http://localhost:5000/member-details", {
+        const response = await axios.get("https://user-qn5p.onrender.com/member-details", {
           headers: {
             Authorization: `Bearer ${token}`
           }

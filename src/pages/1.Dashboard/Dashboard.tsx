@@ -61,7 +61,7 @@ const Dashboard = () => {
           return;
         }
 
-        const response = await axios.get("http://localhost:5000/member-dashboard", {
+        const response = await axios.get("https://user-qn5p.onrender.com/member-dashboard", {
           headers: {
             Authorization: `Bearer ${token}`
           }

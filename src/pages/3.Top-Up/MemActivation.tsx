@@ -91,7 +91,7 @@ const MemberActivation = () => {
         const member_id = currentUser.id;
         const token = localStorage.getItem("token");
         const response = await axios.get(
-          "http://localhost:5000/member-wallet-balance",
+          "https://user-qn5p.onrender.com/member-wallet-balance",
           {
             headers: { Authorization: `Bearer ${token}` },
             params: { member_id }
@@ -124,7 +124,7 @@ const MemberActivation = () => {
         return "";
       }
 
-      const response = await axios.get(`http://localhost:5000/members?member_id=${memberId}`, {
+      const response = await axios.get(`https://user-qn5p.onrender.com/members?member_id=${memberId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -168,7 +168,7 @@ const MemberActivation = () => {
     const token = localStorage.getItem("token");
 
     // 1. Get current balance before activation
-    const balanceResponse = await axios.get('http://localhost:5000/member-wallet-balance', {
+    const balanceResponse = await axios.get('https://user-qn5p.onrender.com/member-wallet-balance', {
       headers: { Authorization: `Bearer ${token}` },
       params: { member_id: currentUser.id }
     });
@@ -176,7 +176,7 @@ const MemberActivation = () => {
 
     // 2. Send activation request
     const response = await axios.post(
-      "http://localhost:5000/activate-member",
+      "https://user-qn5p.onrender.com/activate-member",
       {
         memberId: memberId.toString(),
         planType: selectedPlan,

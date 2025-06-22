@@ -256,7 +256,7 @@ export function AppSidebar() {
   return (
     <>
       {/* Sidebar */}
-      <div className="w-64 h-screen bg-blue-900 text-white flex flex-col shadow-xl fixed left-0 top-0 z-50">
+      <div className="w-64 h-full bg-blue-900 text-white flex flex-col shadow-xl fixed left-0 top-0 z-50">
         {/* Header */}
         <div className="p-4 border-b border-blue-800">
           <div className="flex items-center space-x-3">
@@ -268,7 +268,7 @@ export function AppSidebar() {
         </div>
 
         {/* Menu with custom scrollbar */}
-        <div className="flex-1 px-4 py-4 overflow-y-auto sidebar-scroll">
+        <div className="flex-1 px-4 py-4 overflow-y-auto">
           <style
             dangerouslySetInnerHTML={{
               __html: `

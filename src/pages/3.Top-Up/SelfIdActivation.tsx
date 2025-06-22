@@ -97,7 +97,7 @@ const currentUser = {
     console.log("Fetching balance for member:", member_id);
 
     const response = await axios.get(
-      "http://localhost:5000/member-wallet-balance",
+      "https://user-qn5p.onrender.com/member-wallet-balance",
       {
         headers: { Authorization: `Bearer ${token}` },
         params: { member_id } // Send the member_id from UI
@@ -159,7 +159,7 @@ const currentUser = {
     if (!token) throw new Error("No authentication token");
 
     const response = await axios.post(
-      'http://localhost:5000/self-activate',
+      'https://user-qn5p.onrender.com/self-activate',
       {
         planType: selectedPlan,
         packageName: selectedPlan === 'growth' ? selectedPackage?.name : null,

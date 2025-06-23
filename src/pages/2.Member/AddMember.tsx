@@ -16,13 +16,14 @@ const AddMember = () => {
     emailId: '',
     sponsorCode: '',
     sponsorName: '',
-    position: 'Left', // Default to Left position
-    password: '123456', // Default password
-    confirmPassword: '' // Added confirmPassword
+    position: 'Left',
+    password: '123456',
+    confirmPassword: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -32,28 +33,38 @@ const AddMember = () => {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validate form
+  const validateForm = () => {
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Error",
         description: "Passwords do not match!",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
-    if (!formData.name || !formData.mobileNo || !formData.sponsorCode || !formData.sponsorName || !formData.position || !formData.password) {
+    if (!formData.name || !formData.mobileNo || !formData.sponsorCode || !formData.sponsorName || !formData.password) {
       toast({
         title: "Error",
         description: "Please fill all required fields",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
+    setShowConfirmation(true);
+  };
+
+  const confirmSubmission = async () => {
+    setShowConfirmation(false);
     setIsSubmitting(true);
 
     try {
@@ -69,7 +80,7 @@ const AddMember = () => {
           email: formData.emailId || null,
           sponsor_code: formData.sponsorCode,
           sponsor_name: formData.sponsorName,
-          package: 'Basic', // Hardcoded as Basic
+          package: 'N/A',
           position: formData.position,
           password: formData.password,
           date_of_joining: formData.dateOfJoining
@@ -87,7 +98,6 @@ const AddMember = () => {
         description: "Member added successfully",
       });
       
-      // Redirect to view members after successful addition
       navigate('/member/member-memberlist');
     } catch (error) {
       toast({
@@ -98,6 +108,10 @@ const AddMember = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const cancelSubmission = () => {
+    setShowConfirmation(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -113,75 +127,55 @@ const AddMember = () => {
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <DashboardHeader />
-          <main className="flex-1 p-6">
-            <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 py-10 px-4">
-              <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg border border-gray-200">
-                <div className="bg-purple-600 text-white px-6 py-5 rounded-t-xl">
-                  <h1 className="text-2xl font-semibold">Membership Registration</h1>
+          <main className="flex-1">
+            {/* Confirmation Dialog */}
+            {showConfirmation && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+                  <h3 className="text-xl font-semibold mb-4">Confirm Submission</h3>
+                  <p className="mb-6">Are you sure you want to submit this member information?</p>
+                  <div className="flex justify-end space-x-4">
+                    <button
+                      onClick={cancelSubmission}
+                      className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={confirmSubmission}
+                      disabled={isSubmitting}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+                    >
+                      {isSubmitting ? "Submitting..." : "Confirm"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 py-1 px-2">
+              <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg border border-gray-200">
+                <div className="bg-purple-900 text-white px-6 py-4">
+                  <h1 className="text-2xl font-semibold text-center">
+                    Membership Form
+                  </h1>
                 </div>
 
-                <form onSubmit={handleSubmit} onKeyDown={handleKeyPress} className="p-6 space-y-6">
-                  {/* Personal Details */}
-                  <div>
-                    <h2 className="text-xl font-semibold text-blue-600 mb-4">Personal Details</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Name *</label>
-                        <input
-                          type="text"
-                          name="name"
-                          value={formData.name}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Date of Joining *</label>
-                        <input
-                          type="date"
-                          name="dateOfJoining"
-                          value={formData.dateOfJoining}
-                          onChange={handleInputChange}
-                          min={new Date().toISOString().split('T')[0]}
-                          max={new Date().toISOString().split('T')[0]}
-                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Mobile No *</label>
-                        <input
-                          type="tel"
-                          name="mobileNo"
-                          value={formData.mobileNo}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Email ID</label>
-                        <input
-                          type="email"
-                          name="emailId"
-                          value={formData.emailId}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
+                <form
+                  onSubmit={handleSubmit}
+                  onKeyDown={handleKeyPress}
+                  className="p-6 space-y-6"
+                >
                   {/* Joining Details */}
                   <div>
-                    <h2 className="text-xl font-semibold text-red-600 mb-4">Joining Details</h2>
+                    <h2 className="text-xl font-semibold text-red-600 mb-4">
+                      Joining Details
+                    </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-medium mb-1">Sponsor Code *</label>
+                        <label className="block text-sm font-medium mb-1">
+                          Sponsor Code *
+                        </label>
                         <input
                           type="text"
                           name="sponsorCode"
@@ -193,7 +187,9 @@ const AddMember = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium mb-1">Sponsor Name *</label>
+                        <label className="block text-sm font-medium mb-1">
+                          Sponsor Name *
+                        </label>
                         <input
                           type="text"
                           name="sponsorName"
@@ -203,29 +199,84 @@ const AddMember = () => {
                           required
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Personal Details */}
+                  <div>
+                    <h2 className="text-xl font-semibold text-blue-600 mb-4">
+                      Personal Details
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Name *
+                        </label>
+                        <input
+                          type="text"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          required
+                        />
+                      </div>
 
                       <div>
-                        <label className="block text-sm font-medium mb-1">Position *</label>
-                        <select
-                          name="position"
-                          value={formData.position}
+                        <label className="block text-sm font-medium mb-1">
+                          Date of Joining *
+                        </label>
+                        <input
+                          type="date"
+                          name="dateOfJoining"
+                          value={formData.dateOfJoining}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-2 border rounded-md border-gray-300 bg-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          min={new Date().toISOString().split("T")[0]}
+                          max={new Date().toISOString().split("T")[0]}
+                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                           required
-                        >
-                          <option value="Left">Left</option>
-                          <option value="Right">Right</option>
-                        </select>
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Mobile No *
+                        </label>
+                        <input
+                          type="tel"
+                          name="mobileNo"
+                          value={formData.mobileNo}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Email ID
+                        </label>
+                        <input
+                          type="email"
+                          name="emailId"
+                          value={formData.emailId}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        />
                       </div>
                     </div>
                   </div>
 
                   {/* Password Section */}
                   <div>
-                    <h2 className="text-xl font-semibold text-purple-700 mb-4">Account Security</h2>
+                    <h2 className="text-xl font-semibold text-purple-700 mb-4">
+                      Account Security
+                    </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="relative">
-                        <label className="block text-sm font-medium mb-1">Password *</label>
+                        <label className="block text-sm font-medium mb-1">
+                          Password *
+                        </label>
                         <input
                           type={showPassword ? "text" : "password"}
                           name="password"
@@ -239,12 +290,18 @@ const AddMember = () => {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute top-9 right-3 text-gray-600"
                         >
-                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          {showPassword ? (
+                            <EyeOff size={20} />
+                          ) : (
+                            <Eye size={20} />
+                          )}
                         </button>
                       </div>
 
                       <div className="relative">
-                        <label className="block text-sm font-medium mb-1">Confirm Password *</label>
+                        <label className="block text-sm font-medium mb-1">
+                          Confirm Password *
+                        </label>
                         <input
                           type={showConfirmPassword ? "text" : "password"}
                           name="confirmPassword"
@@ -255,10 +312,16 @@ const AddMember = () => {
                         />
                         <button
                           type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
                           className="absolute top-9 right-3 text-gray-600"
                         >
-                          {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          {showConfirmPassword ? (
+                            <EyeOff size={20} />
+                          ) : (
+                            <Eye size={20} />
+                          )}
                         </button>
                       </div>
                     </div>
@@ -269,9 +332,11 @@ const AddMember = () => {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className={`bg-purple-600 hover:bg-purple-700 text-white font-medium px-8 py-3 rounded-lg shadow-lg transition ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""}`}
+                      className={`bg-purple-600 hover:bg-purple-700 text-white font-medium px-8 py-3 rounded-lg shadow-lg transition ${
+                        isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     >
-                      {isSubmitting ? 'Processing...' : 'Submit (F2)'}
+                      {isSubmitting ? "Processing..." : "Submit (F2)"}
                     </button>
                   </div>
                 </form>

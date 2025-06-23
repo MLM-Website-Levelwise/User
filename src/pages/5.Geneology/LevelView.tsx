@@ -266,13 +266,13 @@ const LevelTeam = () => {
               <thead className="bg-gray-600 text-white">
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-medium">
-                    S No
+                    Sl.No
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
                     Member Id
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
-                    Member
+                    Member Name
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
                     Sponsor Code
@@ -281,7 +281,7 @@ const LevelTeam = () => {
                     Sponsor Name
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
-                    D O J
+                    DOJ
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
                     Topup Date

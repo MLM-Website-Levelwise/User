@@ -38,7 +38,9 @@ import {
   UsersIcon,
   TreePine,
   Wallet,
-  User
+  User,
+  X,
+  Menu,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
@@ -197,6 +199,20 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+  const toggleSidebar = () => {
+    setIsMobileMenuOpen((prev) => !prev);
+  };
+
+  document.addEventListener("toggle-sidebar", toggleSidebar);
+  return () => {
+    document.removeEventListener("toggle-sidebar", toggleSidebar);
+  };
+}, []);
+
 
   // Function to check if a path is active
   const isPathActive = (path?: string) => {
@@ -239,10 +255,10 @@ export function AppSidebar() {
     // Clear auth data
     localStorage.removeItem("token");
     localStorage.removeItem("member");
-    
+
     // Redirect to login
     navigate("/login");
-    
+
     // Optional: Refresh the page to clear any state
     window.location.reload();
   };
@@ -255,20 +271,50 @@ export function AppSidebar() {
 
   return (
     <>
+      {/* Mobile menu toggle button */}
+      {/* {!isMobileMenuOpen && (
+        <button
+          className="md:hidden fixed top-[21px] left-4 z-50 bg-purple-800 p-2 rounded-lg shadow-lg text-white"
+          onClick={() => setIsMobileMenuOpen(true)}
+        >
+          <Menu size={20} />
+        </button>
+      )} */}
       {/* Sidebar */}
-      <div className="w-64 h-full bg-blue-900 text-white flex flex-col shadow-xl fixed left-0 top-0 z-50">
+      <div
+        className={`
+          w-64 h-[100dvh] bg-gradient-to-b from-purple-800 via-purple-900 to-purple-950 
+          text-white flex flex-col shadow-xl fixed left-0 top-0 z-40
+          transform transition-transform duration-300 ease-in-out
+          ${
+            isMobileMenuOpen
+              ? "translate-x-0"
+              : "-translate-x-full md:translate-x-0"
+          }
+        `}
+      >
+        {/* Close button inside sidebar (top right) */}
+        {isMobileMenuOpen && (
+          <button
+            className="md:hidden absolute top-[21px] right-4 z-50 bg-purple-800 p-2 rounded-lg shadow-lg text-white"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <X size={20} />
+          </button>
+        )}
+
         {/* Header */}
-        <div className="p-4 border-b border-blue-800">
+        <div className="p-4 border-b border-white">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-lg">
-              <span className="text-blue-900 font-bold text-lg">P</span>
+              <span className="text-blue-900 font-bold text-lg">PN</span>
             </div>
-            <span className="text-lg font-semibold">Prime Networks</span>
+            <span className="text-lg font-semibold">Prime Next</span>
           </div>
         </div>
 
         {/* Menu with custom scrollbar */}
-        <div className="flex-1 px-4 py-4 overflow-y-auto">
+        <div className="flex-1 px-4 py-4 overflow-y-auto sidebar-scroll">
           <style
             dangerouslySetInnerHTML={{
               __html: `
@@ -280,11 +326,11 @@ export function AppSidebar() {
                 border-radius: 3px;
               }
               .sidebar-scroll::-webkit-scrollbar-thumb {
-                background: #3b82f6;
+                background: #8b5cf6;
                 border-radius: 3px;
               }
               .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-                background: #60a5fa;
+                background: #a78bfa;
               }
             `,
             }}
@@ -298,14 +344,14 @@ export function AppSidebar() {
                       onClick={() => toggleExpanded(item.title)}
                       className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
                         isMainItemActive(item)
-                          ? "bg-blue-800 text-white shadow-md"
-                          : "hover:bg-blue-800/50 text-white/90 hover:text-white"
+                          ? "bg-purple-700 text-white shadow-md"
+                          : "hover:bg-purple-700/50 text-white/90 hover:text-white"
                       }`}
                     >
                       <div className="flex items-center space-x-3">
                         <item.icon
                           className={`w-5 h-5 ${
-                            isMainItemActive(item) ? "text-blue-300" : ""
+                            isMainItemActive(item) ? "text-purple-300" : ""
                           }`}
                         />
                         <span className="text-sm font-medium">
@@ -315,7 +361,7 @@ export function AppSidebar() {
                       <ChevronDown
                         className={`w-4 h-4 transition-transform duration-200 ${
                           expandedItems.includes(item.title) ? "rotate-180" : ""
-                        } ${isMainItemActive(item) ? "text-blue-300" : ""}`}
+                        } ${isMainItemActive(item) ? "text-purple-300" : ""}`}
                       />
                     </button>
 
@@ -329,7 +375,7 @@ export function AppSidebar() {
                             className={`w-full text-left flex items-center space-x-3 px-3 py-2.5 pl-12 rounded-lg transition-all duration-200 group ${
                               isPathActive(subItem.path)
                                 ? "bg-yellow-600/30 text-yellow-300 shadow-md border border-yellow-500/50"
-                                : "text-white/70 hover:bg-blue-800/30 hover:text-white hover:pl-14"
+                                : "text-white/70 hover:bg-purple-700/30 hover:text-white hover:pl-14"
                             }`}
                           >
                             <subItem.icon
@@ -350,14 +396,14 @@ export function AppSidebar() {
                     onClick={() => handleNavigate(item.path)}
                     className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-200 flex items-center group ${
                       isPathActive(item.path)
-                        ? "bg-blue-800 text-white shadow-md"
-                        : "hover:bg-blue-800/50 text-white/90 hover:text-white"
+                        ? "bg-purple-700 text-white shadow-md"
+                        : "hover:bg-purple-700/50 text-white/90 hover:text-white"
                     }`}
                   >
                     <div className="flex items-center space-x-3">
                       <item.icon
                         className={`w-5 h-5 ${
-                          isPathActive(item.path) ? "text-blue-300" : ""
+                          isPathActive(item.path) ? "text-purple-300" : ""
                         }`}
                       />
                       <span className="text-sm font-medium">{item.title}</span>
@@ -370,27 +416,14 @@ export function AppSidebar() {
         </div>
 
         {/* Footer */}
-        {/* <div className="p-4 border-t border-blue-800 mt-auto">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center space-x-2">
-              <Power className="w-4 h-4 text-white/60" />
-              <span className="text-sm text-white/60">Logout</span>
-            </div>
-            <button
-              className="p-2 bg-blue-800 hover:bg-red-500/80 border border-transparent rounded-lg transition-all duration-200"
-              title="Logout"
-            >
-              <LogOut className="w-4 h-4 text-white hover:text-red-100" />
-            </button>
-          </div>
-        </div> */}
-        <div className="p-4 border-t border-blue-800 mt-auto">
+        <div className="p-4 border-t border-white mt-auto">
           <button
-          onClick={handleLogout}
+            onClick={handleLogout}
             className="w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all duration-200 hover:bg-red-500 group"
             title="Logout"
           >
             <div className="flex items-center space-x-2">
+              <Power className="w-4 h-4 text-white/60 group-hover:text-white" />
               <span className="text-sm text-white/60 group-hover:text-white">
                 Logout
               </span>
@@ -400,8 +433,16 @@ export function AppSidebar() {
         </div>
       </div>
 
-      {/* Spacer div to push content to the right of the sidebar */}
-      <div className="w-64 flex-shrink-0"></div>
+      {/* Spacer div - only on desktop */}
+      <div className="hidden md:block w-64 flex-shrink-0"></div>
+
+      {/* Overlay for mobile */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
     </>
   );
 }

@@ -163,20 +163,21 @@ const ViewMember = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="bg-white rounded-lg shadow-sm">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">
-            {localStorage.getItem("memberId")
-              ? "My Downline Members"
-              : "All Members"}
-          </h1>
+    <div className="min-h-screen">
+      {/* Header */}
+      <div className="bg-purple-900 text-white px-6 py-4 w-full text-center">
+        <h1 className="text-xl font-medium text-white">
+          {localStorage.getItem("memberId")
+            ? "My Downline Members"
+            : "View Members"}
+        </h1>
+      </div>
 
+      <div className="bg-white rounded-lg shadow-sm">
+        <div className="p-6 border-b border-gray-200">
           {/* Top Controls */}
-          <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
-            {/* Search */}
-            <div className="relative flex-1 min-w-64">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div className="relative w-full sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
@@ -186,29 +187,30 @@ const ViewMember = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <button
                 onClick={() => handleAction("Add", {})}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+                className="bg-green-600 hover:bg-green-700 text-white p-2 rounded flex items-center gap-1"
+                title="Add Member"
               >
-                <Plus className="w-4 h-4" />
-                Add
+                <Plus size={16} />
+                <span className="hidden sm:inline">Add</span>
               </button>
               <button
                 onClick={() => handleExport("excel")}
-                className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 flex items-center gap-2"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded flex items-center gap-1"
+                title="Export to Excel"
               >
-                <FileText className="w-4 h-4" />
-                Excel
+                <FileText size={16} />
+                <span className="hidden sm:inline">Excel</span>
               </button>
               <button
                 onClick={() => handleExport("pdf")}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
+                className="bg-red-600 hover:bg-red-700 text-white p-2 rounded flex items-center gap-1"
+                title="Export to PDF"
               >
-                <Download className="w-4 h-4" />
-                PDF
+                <Download size={16} />
+                <span className="hidden sm:inline">PDF</span>
               </button>
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -300,7 +302,7 @@ const ViewMember = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Member Name
                   </label>
@@ -313,7 +315,7 @@ const ViewMember = () => {
                     placeholder="Enter member name"
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                </div>
+                </div> */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status
@@ -330,7 +332,7 @@ const ViewMember = () => {
                     <option value="Inactive">Inactive</option>
                   </select>
                 </div>
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Position
                   </label>
@@ -345,7 +347,7 @@ const ViewMember = () => {
                     <option value="Left">Left</option>
                     <option value="Right">Right</option>
                   </select>
-                </div>
+                </div> */}
               </div>
               <div className="mt-4">
                 <button
@@ -364,17 +366,37 @@ const ViewMember = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-600 text-white">
-                <th className="px-4 py-3 text-left text-sm font-medium">Sl No.</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Member Id</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Name</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Sponsor Code</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Sponsor Name</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Package</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Sl No.
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Member Id
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Sponsor Code
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Sponsor Name
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Package
+                </th>
                 <th className="px-4 py-3 text-left text-sm font-medium">DOJ</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Topup Date</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Topup Amount</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Position</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Topup Date
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Topup Amount
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-medium">
+                  Status
+                </th>
+                {/* <th className="px-4 py-3 text-left text-sm font-medium">
+                  Position
+                </th> */}
               </tr>
             </thead>
             <tbody>
@@ -389,7 +411,9 @@ const ViewMember = () => {
                   <td className="px-4 py-3 text-sm text-blue-600 font-medium">
                     {member.member_id}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{member.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {member.name}
+                  </td>
                   <td className="px-4 py-3 text-sm text-blue-600">
                     {member.sponsor_code}
                   </td>
@@ -412,7 +436,9 @@ const ViewMember = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
-                    {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
+                    {new Date(member.date_of_joining).toLocaleDateString(
+                      "en-GB"
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
                     {member.topup_date
@@ -433,7 +459,7 @@ const ViewMember = () => {
                       {member.active_status ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm">
+                  {/* <td className="px-4 py-3 text-sm">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
                         member.position === "Left"
@@ -443,8 +469,7 @@ const ViewMember = () => {
                     >
                       {member.position || "N/A"}
                     </span>
-                  </td>
-                  
+                  </td> */}
                 </tr>
               ))}
             </tbody>

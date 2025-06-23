@@ -105,32 +105,32 @@ const menuItems: MenuItem[] = [
         icon: Eye,
         path: "/top-up/growth-retopup",
       },
-      {
-        title: "Wallet Transfer",
-        icon: Wallet,
-        path: "/top-up/wallet-transfer",
-      },
-      { title: "Self Report", icon: History, path: "/top-up/self-statement" },
+      // {
+      //   title: "Wallet Transfer",
+      //   icon: Wallet,
+      //   path: "/top-up/wallet-transfer",
+      // },
+      // { title: "Self Report", icon: History, path: "/top-up/self-statement" },
 
-      {
-        title: "Member Report",
-        icon: History,
-        path: "/top-up/member-statement",
-      },
+      // {
+      //   title: "Member Report",
+      //   icon: History,
+      //   path: "/top-up/member-statement",
+      // },
     ],
   },
-  {
-    title: "Purchase",
-    icon: ShoppingCart,
-    submenu: [
-      { title: "Self Purchase", icon: Eye, path: "/purchase/self-purchase" },
-      {
-        title: "Self Purchase Report",
-        icon: History,
-        path: "/purchase/self-purchase-report",
-      },
-    ],
-  },
+  // {
+  //   title: "Purchase",
+  //   icon: ShoppingCart,
+  //   submenu: [
+  //     { title: "Self Purchase", icon: Eye, path: "/purchase/self-purchase" },
+  //     {
+  //       title: "Self Purchase Report",
+  //       icon: History,
+  //       path: "/purchase/self-purchase-report",
+  //     },
+  //   ],
+  // },
   {
     title: "Geneology",
     icon: Users,
@@ -140,59 +140,59 @@ const menuItems: MenuItem[] = [
         icon: UserPlus,
         path: "/geneology/level-wise-team",
       },
-      { title: "Binary View", icon: UserPlus, path: "/geneology/binary-view" },
+      // { title: "Binary View", icon: UserPlus, path: "/geneology/binary-view" },
     ],
   },
-  {
-    title: "Withdrawal",
-    icon: DollarSign,
-    submenu: [
-      {
-        title: "Send Request",
-        icon: UserPlus,
-        path: "/withdrawal/send-request",
-      },
-      {
-        title: "Request Status",
-        icon: UserPlus,
-        path: "/withdrawal/request-status",
-      },
-    ],
-  },
-  {
-    title: "Income",
-    icon: Briefcase,
-    submenu: [
-      {
-        title: "Direct Income",
-        icon: UserCheck,
-        path: "/income/direct-income",
-      },
-      {
-        title: "Level-wise Income",
-        icon: UserCheck,
-        path: "/income/levelwise-income",
-      },
-      {
-        title: "Growth-wise Income",
-        icon: UserCheck,
-        path: "/income/levelwise-income",
-      },
-    ],
-  },
-  {
-    title: "Settings",
-    icon: Settings,
-    submenu: [
-      { title: "Profile", icon: UserCheck, path: "/settings/profile" },
-      { title: "Password Reset", icon: Lock, path: "/settings/password" },
-      {
-        title: "KYC Upload",
-        icon: Upload,
-        path: "/settings/kyc",
-      },
-    ],
-  },
+  // {
+  //   title: "Withdrawal",
+  //   icon: DollarSign,
+  //   submenu: [
+  //     {
+  //       title: "Send Request",
+  //       icon: UserPlus,
+  //       path: "/withdrawal/send-request",
+  //     },
+  //     {
+  //       title: "Request Status",
+  //       icon: UserPlus,
+  //       path: "/withdrawal/request-status",
+  //     },
+  //   ],
+  // },
+  // {
+  //   title: "Income",
+  //   icon: Briefcase,
+  //   submenu: [
+  //     {
+  //       title: "Direct Income",
+  //       icon: UserCheck,
+  //       path: "/income/direct-income",
+  //     },
+  //     {
+  //       title: "Level-wise Income",
+  //       icon: UserCheck,
+  //       path: "/income/levelwise-income",
+  //     },
+  //     {
+  //       title: "Growth-wise Income",
+  //       icon: UserCheck,
+  //       path: "/income/levelwise-income",
+  //     },
+  //   ],
+  // },
+  // {
+  //   title: "Settings",
+  //   icon: Settings,
+  //   submenu: [
+  //     { title: "Profile", icon: UserCheck, path: "/settings/profile" },
+  //     { title: "Password Reset", icon: Lock, path: "/settings/password" },
+  //     {
+  //       title: "KYC Upload",
+  //       icon: Upload,
+  //       path: "/settings/kyc",
+  //     },
+  //   ],
+  // },
 ];
 
 export function AppSidebar() {

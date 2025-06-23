@@ -58,11 +58,11 @@ const App = () => (
           <Route path="/top-up/member-statement" element={<TopUpStatement />} />
           <Route path="/top-up/wallet-transfer" element={<WalletTransfer />} />
           {/* Purchase */}
-          <Route path="/purchase/self-purchase" element={<SelfPurchase />} />
+          {/* <Route path="/purchase/self-purchase" element={<SelfPurchase />} />
           <Route
             path="/purchase/self-purchase-report"
             element={<SelfPurchaseReport />}
-          />
+          /> */}
 
           {/* Withdrawal */}
           <Route path="/withdrawal/send-request" element={<SendRequest />} />

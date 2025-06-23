@@ -307,110 +307,74 @@ const DirectMember: React.FC = () => {
           )}
         </div>
 
-        {/* Table */}
+        {/* YOUR EXACT TABLE IMPLEMENTATION */}
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="bg-gray-700 text-white">
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Sl No.
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Member ID
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Member Name
-                </th>
-                <th className="px-4 py-3 text-center text-sm font-medium">
-                  Position
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Date of Joining
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Topup Date
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Topup Amount
-                </th>
-                <th className="px-4 py-3 text-center text-sm font-medium">
-                  Package
-                </th>
-                <th className="px-4 py-3 text-center text-sm font-medium">
-                  Status
-                </th>
+            <thead className="bg-purple-700 text-white">
+              <tr>
+                <th className="sticky left-0 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Sl No.</th>
+                <th className="sticky left-12 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Member ID</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Name</th>
+                {/* <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Position</th> */}
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">DOJ</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Date</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Amount</th>
+                <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Package</th>
+                <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
               {paginatedMembers.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={9}
-                    className="px-4 py-8 text-center text-gray-500"
-                  >
-                    No members found matching your criteria
+                  <td colSpan={9} className="px-4 py-4 text-center text-gray-500 text-sm">
+                    No members found
                   </td>
                 </tr>
               ) : (
                 paginatedMembers.map((member, index) => (
-                  <tr
-                    key={member.member_id}
-                    className="border-b border-gray-200 hover:bg-gray-50"
-                  >
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                  <tr key={member.member_id} className="border-b border-gray-200 hover:bg-gray-50">
+                    {/* Sticky columns for mobile */}
+                    <td className="sticky left-0 px-3 py-3 text-xs sm:text-sm text-gray-900 bg-white">
                       {startIndex + index + 1}
                     </td>
-                    <td className="px-4 py-3 text-sm text-blue-600 font-medium">
+                    <td className="sticky left-12 px-3 py-3 text-xs sm:text-sm text-blue-600 font-medium bg-white">
                       {member.member_id}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                    
+                    {/* Regular columns */}
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900 font-medium">
                       {member.member_name}
                     </td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          member.position === "Left"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-purple-100 text-purple-800"
-                        }`}
-                      >
+                    {/* <td className="px-3 py-3 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        member.position === "Left" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
+                      }`}>
                         {member.position}
                       </span>
+                    </td> */}
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {new Date(member.date_of_joining).toLocaleDateString(
-                        "en-GB"
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
                       {member.topup_date || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
                       {member.topup_amount || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          member.package === "Premium"
-                            ? "bg-purple-100 text-purple-800"
-                            : member.package === "Gold"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : member.package === "Silver"
-                            ? "bg-gray-100 text-gray-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
+                    <td className="px-3 py-3 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        member.package === "Premium" ? "bg-purple-100 text-purple-800" :
+                        member.package === "Gold" ? "bg-yellow-100 text-yellow-800" :
+                        member.package === "Silver" ? "bg-gray-100 text-gray-800" : 
+                        "bg-blue-100 text-blue-800"
+                      }`}>
                         {member.package}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          member.status === "Active"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
+                    <td className="px-3 py-3 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        member.status === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                      }`}>
                         {member.status}
                       </span>
                     </td>
@@ -420,6 +384,7 @@ const DirectMember: React.FC = () => {
             </tbody>
           </table>
         </div>
+
 
         {/* Pagination */}
         {totalPages > 1 && (

@@ -302,20 +302,6 @@ const ViewMember = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
-                {/* <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Member Name
-                  </label>
-                  <input
-                    type="text"
-                    value={filters.memberName}
-                    onChange={(e) =>
-                      handleFilterChange("memberName", e.target.value)
-                    }
-                    placeholder="Enter member name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div> */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status
@@ -332,22 +318,6 @@ const ViewMember = () => {
                     <option value="Inactive">Inactive</option>
                   </select>
                 </div>
-                {/* <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Position
-                  </label>
-                  <select
-                    value={filters.position}
-                    onChange={(e) =>
-                      handleFilterChange("position", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">All Positions</option>
-                    <option value="Left">Left</option>
-                    <option value="Right">Right</option>
-                  </select>
-                </div> */}
               </div>
               <div className="mt-4">
                 <button
@@ -361,117 +331,82 @@ const ViewMember = () => {
           )}
         </div>
 
-        {/* Table */}
+        {/* Updated Table Design */}
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="bg-gray-600 text-white">
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Sl No.
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Member Id
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Sponsor Code
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Sponsor Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Package
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">DOJ</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Topup Date
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Topup Amount
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium">
-                  Status
-                </th>
-                {/* <th className="px-4 py-3 text-left text-sm font-medium">
-                  Position
-                </th> */}
+            <thead className="bg-purple-700 text-white">
+              <tr>
+                <th className="sticky left-0 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Sl No.</th>
+                <th className="sticky left-12 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Member ID</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Name</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Sponsor Code</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Sponsor Name</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">DOJ</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Date</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Amount</th>
+                <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Package</th>
+                <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
-              {paginatedMembers.map((member, index) => (
-                <tr
-                  key={member.id}
-                  className="border-b border-gray-200 hover:bg-gray-50"
-                >
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {startIndex + index + 1}
+              {paginatedMembers.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-4 text-center text-gray-500 text-sm">
+                    No members found
                   </td>
-                  <td className="px-4 py-3 text-sm text-blue-600 font-medium">
-                    {member.member_id}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {member.name}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-blue-600">
-                    {member.sponsor_code}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {member.sponsor_name}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        member.package === "Premium"
-                          ? "bg-purple-100 text-purple-800"
-                          : member.package === "Gold"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : member.package === "Silver"
-                          ? "bg-gray-100 text-gray-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {member.package}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {new Date(member.date_of_joining).toLocaleDateString(
-                      "en-GB"
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {member.topup_date
-                      ? new Date(member.topup_date).toLocaleDateString("en-GB")
-                      : "N/A"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {member.topup_amount || "0"}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        member.active_status
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {member.active_status ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  {/* <td className="px-4 py-3 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        member.position === "Left"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-orange-100 text-orange-800"
-                      }`}
-                    >
-                      {member.position || "N/A"}
-                    </span>
-                  </td> */}
                 </tr>
-              ))}
+              ) : (
+                paginatedMembers.map((member, index) => (
+                  <tr key={member.id} className="border-b border-gray-200 hover:bg-gray-50">
+                    {/* Sticky columns */}
+                    <td className="sticky left-0 px-3 py-3 text-xs sm:text-sm text-gray-900 bg-white">
+                      {startIndex + index + 1}
+                    </td>
+                    <td className="sticky left-12 px-3 py-3 text-xs sm:text-sm text-blue-600 font-medium bg-white">
+                      {member.member_id}
+                    </td>
+                    
+                    {/* Regular columns */}
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {member.name}
+                    </td>
+                    <td className="px-3 py-3 text-xs sm:text-sm text-blue-600">
+                      {member.sponsor_code}
+                    </td>
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {member.sponsor_name}
+                    </td>
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
+                    </td>
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {member.topup_date
+                        ? new Date(member.topup_date).toLocaleDateString("en-GB")
+                        : "N/A"}
+                    </td>
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {member.topup_amount || "0"}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        member.package === "Premium" ? "bg-purple-100 text-purple-800" :
+                        member.package === "Gold" ? "bg-yellow-100 text-yellow-800" :
+                        member.package === "Silver" ? "bg-gray-100 text-gray-800" : 
+                        "bg-blue-100 text-blue-800"
+                      }`}>
+                        {member.package}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        member.active_status ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                      }`}>
+                        {member.active_status ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

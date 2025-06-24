@@ -181,7 +181,7 @@ const MemberActivation = () => {
       `${API_BASE_URL}/activate-member`,
       {
         memberId: memberId.toString(),
-        planType: selectedPlan,
+        planType: selectedPlan === "growth" ? selectedPackage?.name : selectedPlan,
         amount: activationAmount
       },
       {

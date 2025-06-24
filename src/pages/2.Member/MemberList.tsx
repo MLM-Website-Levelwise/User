@@ -16,6 +16,8 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const ViewMember = () => {
   const navigate = useNavigate();
   const [members, setMembers] = useState([]);
@@ -50,7 +52,7 @@ const ViewMember = () => {
           return;
         }
 
-        const response = await axios.get("https://user-qn5p.onrender.com/my-member", {
+        const response = await axios.get(`${API_BASE_URL}/my-member`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -337,11 +339,11 @@ const ViewMember = () => {
             <thead className="bg-purple-700 text-white">
               <tr>
                 <th className="sticky left-0 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Sl No.</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">DOJ</th>
                 <th className="sticky left-12 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Member ID</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Name</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Sponsor Code</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Sponsor Name</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">DOJ</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Date</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Amount</th>
                 <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Package</th>
@@ -362,6 +364,9 @@ const ViewMember = () => {
                     <td className="sticky left-0 px-3 py-3 text-xs sm:text-sm text-gray-900 bg-white">
                       {startIndex + index + 1}
                     </td>
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
+                    </td>
                     <td className="sticky left-12 px-3 py-3 text-xs sm:text-sm text-blue-600 font-medium bg-white">
                       {member.member_id}
                     </td>
@@ -376,16 +381,14 @@ const ViewMember = () => {
                     <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
                       {member.sponsor_name}
                     </td>
-                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
-                    </td>
+                    
                     <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
                       {member.topup_date
                         ? new Date(member.topup_date).toLocaleDateString("en-GB")
                         : "N/A"}
                     </td>
                     <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {member.topup_amount || "0"}
+                      ${member.topup_amount || "0"}
                     </td>
                     <td className="px-3 py-3 text-center">
                       <span className={`px-2 py-1 rounded-full text-xs ${

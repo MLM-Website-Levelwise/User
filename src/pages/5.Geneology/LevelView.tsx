@@ -7,6 +7,8 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const LevelTeam = () => {
   const [teamData, setTeamData] = useState({
     currentMember: null,
@@ -25,7 +27,7 @@ const LevelTeam = () => {
           return;
         }
 
-        const response = await axios.get("https://user-qn5p.onrender.com/level-wise-team", {
+        const response = await axios.get(`${API_BASE_URL}/level-wise-team`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -93,11 +95,15 @@ const LevelTeam = () => {
       sponsorCode: member.sponsor_code,
       sponsorName: member.sponsor_name,
       doj: member.date_of_joining,
-      topup_date: null, // Placeholder since not in current schema
-      topup_amount: null, // Placeholder since not in current schema
-      purchase_amount: null, // Placeholder for new purchase amount
+      topup_date: member.topup_date 
+        ? new Date(member.topup_date).toLocaleDateString('en-GB') 
+        : "N/A",
+      topup_amount: member.topup_amount 
+        ? `$${member.topup_amount.toFixed(2)}` 
+        : "N/A",
       status: member.active_status ? "Active" : "InActive",
-      level: member.level
+      level: member.level,
+      totalretopup: "N/A"
     }))
   ];
 
@@ -187,6 +193,10 @@ const LevelTeam = () => {
                 <option value="4">4</option>
                 <option value="5">5</option>
                 <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
               </select>
             </div>
 
@@ -269,6 +279,9 @@ const LevelTeam = () => {
                     Sl.No
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
+                    DOJ
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
                     Member Id
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
@@ -280,9 +293,7 @@ const LevelTeam = () => {
                   <th className="px-4 py-3 text-left text-sm font-medium">
                     Sponsor Name
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    DOJ
-                  </th>
+                  
                   <th className="px-4 py-3 text-left text-sm font-medium">
                     Topup Date
                   </th>
@@ -290,7 +301,7 @@ const LevelTeam = () => {
                     Topup Amount
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
-                    Purchase Amount
+                    Total Re Top up
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
                     Status
@@ -307,6 +318,9 @@ const LevelTeam = () => {
                       {index + 1}.
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
+                      {member.doj}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
                       {member.memberId}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
@@ -318,9 +332,7 @@ const LevelTeam = () => {
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {member.sponsorName}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.doj}
-                    </td>
+                    
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {member.topup_date || "N/A"}
                     </td>
@@ -328,7 +340,7 @@ const LevelTeam = () => {
                       {member.topup_amount || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.purchase_amount || "N/A"}
+                      {member.totalretopup || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span

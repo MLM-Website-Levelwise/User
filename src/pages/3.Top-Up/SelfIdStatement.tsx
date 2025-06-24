@@ -4,60 +4,41 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import React from "react";
 import { Package, DollarSign, Calendar, CheckCircle } from "lucide-react";
 
+import { useEffect, useState } from "react";
+
 const Self_Statement: React.FC = () => {
-  // Sample activation records with different plans and packages
-  const activations = [
-    {
-      id: 1,
-      date: "2025-06-15T14:30:00",
-      userId: "PRN676277",
-      name: "Samima Bibi",
-      plan: "Growth Plan",
-      package: "30$",
-      amount: 30,
-      status: "Completed",
-    },
-    {
-      id: 2,
-      date: "2025-06-10T11:20:00",
-      userId: "PRN676277",
-      name: "Samima Bibi",
-      plan: "Growth Plan",
-      package: "45$",
-      amount: 45,
-      status: "Completed",
-    },
-    {
-      id: 3,
-      date: "2025-05-28T09:15:00",
-      userId: "PRN676277",
-      name: "Samima Bibi",
-      plan: "Profit Sharing Plan",
-      package: "75$",
-      amount: 75,
-      status: "Completed",
-    },
-    {
-      id: 4,
-      date: "2025-05-20T16:45:00",
-      userId: "PRN676277",
-      name: "Samima Bibi",
-      plan: "Growth Re Topup",
-      package: "25$",
-      amount: 25,
-      status: "Completed",
-    },
-    {
-      id: 5,
-      date: "2025-05-05T13:10:00",
-      userId: "PRN676277",
-      name: "Samima Bibi",
-      plan: "Profit Sharing Re Topup",
-      package: "75$",
-      amount: 75,
-      status: "Completed",
-    },
-  ];
+  const [activations, setActivations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  useEffect(() => {
+    const fetchActivationReport = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/self-activation-report`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch activation report');
+        }
+        
+        const data = await response.json();
+        if (data.success) {
+          setActivations(data.transactions);
+        }
+      } catch (error) {
+        console.error('Error fetching activation report:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActivationReport();
+  }, []);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -69,6 +50,10 @@ const Self_Statement: React.FC = () => {
       minute: "2-digit",
     });
   };
+
+  if (loading) {
+    return <div>Loading activation report...</div>;
+  }
 
   return (
     <SidebarProvider>
@@ -95,10 +80,7 @@ const Self_Statement: React.FC = () => {
                         Date
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">
-                        Member ID
-                      </th>
-                      <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">
-                        Member Name
+                        Transaction Type
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">
                         Plan
@@ -118,16 +100,13 @@ const Self_Statement: React.FC = () => {
                     {activations.map((activation) => (
                       <tr key={activation.id}>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
-                          {activation.id}
+                          {activation.slNo}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
                           {formatDate(activation.date)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
-                          {activation.userId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
-                          {activation.name}
+                          {activation.transactionType}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
                           {activation.plan}

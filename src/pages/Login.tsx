@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import axios from "axios";
-
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const Login = () => {
   const [credentials, setCredentials] = useState({ member_id: "", password: "" });
   const [error, setError] = useState("");
@@ -16,7 +16,7 @@ const Login = () => {
     setError("");
     
     try {
-      const response = await axios.post("https://user-qn5p.onrender.com/member-login", {
+      const response = await axios.post(`${API_BASE_URL}/member-login`, {
         member_id: credentials.member_id,
         password: credentials.password
       });

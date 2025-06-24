@@ -24,6 +24,8 @@ interface Member {
   status: "Active" | "Inactive";
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 interface Filters {
   dateFrom: string;
   dateTo: string;
@@ -57,7 +59,7 @@ const DirectMember: React.FC = () => {
           return;
         }
 
-        const response = await axios.get("https://user-qn5p.onrender.com/direct-referrals", {
+        const response = await axios.get(`${API_BASE_URL}/direct-referrals`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -313,10 +315,11 @@ const DirectMember: React.FC = () => {
             <thead className="bg-purple-700 text-white">
               <tr>
                 <th className="sticky left-0 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Sl No.</th>
+                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">DOJ</th>
                 <th className="sticky left-12 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Member ID</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Name</th>
                 {/* <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Position</th> */}
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">DOJ</th>
+                
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Date</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Amount</th>
                 <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Package</th>
@@ -337,6 +340,9 @@ const DirectMember: React.FC = () => {
                     <td className="sticky left-0 px-3 py-3 text-xs sm:text-sm text-gray-900 bg-white">
                       {startIndex + index + 1}
                     </td>
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
+                    </td>
                     <td className="sticky left-12 px-3 py-3 text-xs sm:text-sm text-blue-600 font-medium bg-white">
                       {member.member_id}
                     </td>
@@ -352,14 +358,12 @@ const DirectMember: React.FC = () => {
                         {member.position}
                       </span>
                     </td> */}
+                    
                     <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
-                    </td>
+  {member.topup_date ? new Date(member.topup_date).toISOString().split('T')[0] : "N/A"}
+</td>
                     <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {member.topup_date || "N/A"}
-                    </td>
-                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {member.topup_amount || "N/A"}
+                      ${member.topup_amount || "N/A"}
                     </td>
                     <td className="px-3 py-3 text-center">
                       <span className={`px-2 py-1 rounded-full text-xs ${

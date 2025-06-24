@@ -2,16 +2,19 @@ import React, { useEffect, useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { Search, Calendar, Package } from "lucide-react"; // Import Lucide icons
+import { Search, Calendar, Package } from "lucide-react";
 
 interface TopUpEntry {
-  id: string;
-  name: string;
-  topUpBy: string;
-  packageName: string;
-  amount: number;
-  date: string;
+  'sl no': number;
+  'mem id': string;
+  'mem name': string;
+  'top up date': string;
+  'plan': string;
+  'amt': number;
+  'status': string;
 }
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const TopUp_Statement: React.FC = () => {
   const [topUpHistory, setTopUpHistory] = useState<TopUpEntry[]>([]);
@@ -19,37 +22,35 @@ const TopUp_Statement: React.FC = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [packageFilter, setPackageFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const dummyData: TopUpEntry[] = [
-      {
-        id: "TOP001",
-        name: "John Doe",
-        topUpBy: "ADM001",
-        packageName: "Basic Package",
-        amount: 299,
-        date: "2025-06-15T14:30:00",
-      },
-      {
-        id: "TOP002",
-        name: "Alice Smith",
-        topUpBy: "ADM001",
-        packageName: "Premium Package",
-        amount: 699,
-        date: "2025-06-16T10:15:00",
-      },
-      {
-        id: "TOP003",
-        name: "Bob Brown",
-        topUpBy: "ADM001",
-        packageName: "Basic Package",
-        amount: 299,
-        date: "2025-06-17T09:00:00",
-      },
-    ];
+    const fetchTopUpHistory = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/topup-statement`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch data');
+        }
+        
+        const data = await response.json();
+        setTopUpHistory(data);
+        setFilteredHistory(data);
+      } catch (err) {
+        console.error('Error fetching top-up history:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    setTopUpHistory(dummyData);
-    setFilteredHistory(dummyData);
+    fetchTopUpHistory();
   }, []);
 
   useEffect(() => {
@@ -57,24 +58,32 @@ const TopUp_Statement: React.FC = () => {
 
     if (fromDate) {
       filtered = filtered.filter(
-        (entry) => new Date(entry.date) >= new Date(fromDate)
+        (entry) => new Date(entry['top up date']) >= new Date(fromDate)
       );
     }
 
     if (toDate) {
       filtered = filtered.filter(
-        (entry) => new Date(entry.date) <= new Date(toDate)
+        (entry) => new Date(entry['top up date']) <= new Date(toDate)
       );
     }
 
     if (packageFilter.trim() !== "") {
       filtered = filtered.filter((entry) =>
-        entry.packageName.toLowerCase().includes(packageFilter.toLowerCase())
+        entry['plan'].toLowerCase().includes(packageFilter.toLowerCase())
       );
     }
 
     setFilteredHistory(filtered);
   }, [fromDate, toDate, packageFilter, topUpHistory]);
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-64">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="flex justify-center items-center h-64 text-red-500">{error}</div>;
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-6">
@@ -135,36 +144,20 @@ const TopUp_Statement: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr className="bg-blue-600 text-white">
-                <th className="px-6 py-3 text-left text-sm font-medium text-white-500 uppercase tracking-wider">
-                  Sl No.
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-white-500 uppercase tracking-wider">
-                  Top-up ID
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-white-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-white-500 uppercase tracking-wider">
-                  Done By
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-white-500 uppercase tracking-wider">
-                  Package
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-white-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-white-500 uppercase tracking-wider">
-                  Date
-                </th>
+                <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Sl No.</th>
+                <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Member ID</th>
+                <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Member Name</th>
+                <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Package</th>
+                <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Amount</th>
+                
+                <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredHistory.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center">
                       <Search className="w-8 h-8 text-gray-300 mb-2" />
                       <p className="text-gray-400">No transactions found</p>
@@ -176,40 +169,12 @@ const TopUp_Statement: React.FC = () => {
                 </tr>
               ) : (
                 filteredHistory.map((entry, index) => (
-                  <tr
-                    key={index}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
+                  <tr key={index} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-base text-gray-500">
-                      {index + 1}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-base font-medium">
-                        {entry.id}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {entry.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-base text-blue-600 font-medium">
-                      {entry.topUpBy}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 rounded-full text-sm font-medium ${
-                          entry.packageName.includes("Premium")
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-blue-100 text-blue-800"
-                        }`}
-                      >
-                        {entry.packageName}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-base font-semibold text-gray-900">
-                      ₹{entry.amount}
+                      {entry['sl no']}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-base text-gray-500">
-                      {new Date(entry.date).toLocaleString("en-IN", {
+                      {new Date(entry['top up date']).toLocaleString("en-IN", {
                         day: "2-digit",
                         month: "short",
                         year: "numeric",
@@ -217,6 +182,36 @@ const TopUp_Statement: React.FC = () => {
                         minute: "2-digit",
                         hour12: true,
                       })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-base font-medium">
+                        {entry['mem id']}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {entry['mem name']}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-full text-sm font-medium ${
+                        entry['plan'].includes("Premium")
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}>
+                        {entry['plan']}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-base font-semibold text-gray-900">
+                      ${entry['amt']}
+                    </td>
+                    
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 rounded-md text-sm font-medium ${
+                        entry['status'] === 'completed' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {entry['status']}
+                      </span>
                     </td>
                   </tr>
                 ))

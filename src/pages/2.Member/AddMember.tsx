@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, Loader } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const AddMember = () => {
   const navigate = useNavigate();
@@ -24,13 +27,94 @@ const AddMember = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isFetchingSponsor, setIsFetchingSponsor] = useState(false);
+  const [isActive, setIsActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  useEffect(() => {
+    const checkActivationStatus = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          navigate("/login");
+          return;
+        }
+
+        const response = await axios.get(`${API_BASE_URL}/check-activation-status`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        setIsActive(response.data.isActive);
+      } catch (error) {
+        console.error("Error checking activation status:", error);
+        toast({
+          title: "Error",
+          description: "Failed to check activation status",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkActivationStatus();
+  }, [navigate, toast]);
+
+  // Fetch sponsor name from backend
+  const fetchSponsorName = async (memberId: string): Promise<string> => {
+    setIsFetchingSponsor(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/login");
+        return "";
+      }
+
+      const response = await axios.get(`${API_BASE_URL}/members/check-sponsor?member_id=${memberId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      return response.data.name || "";
+    } catch (error) {
+      console.error("Error fetching sponsor:", error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || "You can only view your own information or your direct referrals",
+        variant: "destructive",
+      });
+      return "";
+    } finally {
+      setIsFetchingSponsor(false);
+    }
+  };
+
+  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+
+    // Fetch sponsor name when sponsor code changes and has at least 4 characters
+    if (name === "sponsorCode" && value.length >= 4) {
+      try {
+        const sponsorName = await fetchSponsorName(value);
+        setFormData(prev => ({
+          ...prev,
+          sponsorName
+        }));
+      } catch (error) {
+        setFormData(prev => ({
+          ...prev,
+          sponsorName: ""
+        }));
+      }
+    }
   };
 
   const validateForm = () => {
@@ -68,7 +152,7 @@ const AddMember = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('https://user-qn5p.onrender.com/members', {
+      const response = await fetch(`${API_BASE_URL}/members`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,6 +204,249 @@ const AddMember = () => {
       handleSubmit(e as any);
     }
   };
+
+  if (isLoading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-gray-50">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col">
+            <DashboardHeader />
+            <main className="flex-1 flex items-center justify-center">
+              <Loader className="w-8 h-8 animate-spin text-purple-600" />
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  if (!isActive) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-gray-50">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col">
+            <DashboardHeader />
+            <main className="flex-1">
+              <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 py-1 px-2">
+                <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg border border-gray-200 relative">
+                  <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10">
+                    <div className="text-center p-8 bg-red-100 rounded-lg border border-red-300 shadow-lg">
+                      <h2 className="text-2xl font-bold text-red-600 mb-4">Account Inactive</h2>
+                      <p className="text-lg text-gray-700 mb-6">
+                        You need to activate your account before you can add new members.
+                      </p>
+                      <p className="text-gray-600">
+                        Please contact your sponsor or administrator to activate your account.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* The rest of your form (rendered in the background) */}
+                  <div className="opacity-30">
+                    <div className="bg-purple-900 text-white px-6 py-4">
+                      <h1 className="text-2xl font-semibold text-center">
+                        Membership Form
+                      </h1>
+                    </div>
+
+                    <form
+                      onSubmit={handleSubmit}
+                      onKeyDown={handleKeyPress}
+                      className="p-6 space-y-6"
+                    >
+                      {/* Joining Details */}
+                      <div>
+                        <h2 className="text-xl font-semibold text-red-600 mb-4">
+                          Joining Details
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Sponsor Code *
+                            </label>
+                            <input
+                              type="text"
+                              name="sponsorCode"
+                              value={formData.sponsorCode}
+                              onChange={handleInputChange}
+                              className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Sponsor Name *
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                name="sponsorName"
+                                value={formData.sponsorName}
+                                onChange={handleInputChange}
+                                className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none bg-gray-50"
+                                required
+                                readOnly
+                              />
+                              {isFetchingSponsor && (
+                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                  <Loader className="w-4 h-4 animate-spin text-purple-600" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Personal Details */}
+                      <div>
+                        <h2 className="text-xl font-semibold text-blue-600 mb-4">
+                          Personal Details
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Name *
+                            </label>
+                            <input
+                              type="text"
+                              name="name"
+                              value={formData.name}
+                              onChange={handleInputChange}
+                              className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Date of Joining *
+                            </label>
+                            <input
+                              type="date"
+                              name="dateOfJoining"
+                              value={formData.dateOfJoining}
+                              onChange={handleInputChange}
+                              min={new Date().toISOString().split("T")[0]}
+                              max={new Date().toISOString().split("T")[0]}
+                              className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Mobile No *
+                            </label>
+                            <input
+                              type="tel"
+                              name="mobileNo"
+                              value={formData.mobileNo}
+                              onChange={handleInputChange}
+                              className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium mb-1">
+                              Email ID
+                            </label>
+                            <input
+                              type="email"
+                              name="emailId"
+                              value={formData.emailId}
+                              onChange={handleInputChange}
+                              className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Password Section */}
+                      <div>
+                        <h2 className="text-xl font-semibold text-purple-700 mb-4">
+                          Account Security
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="relative">
+                            <label className="block text-sm font-medium mb-1">
+                              Password *
+                            </label>
+                            <input
+                              type={showPassword ? "text" : "password"}
+                              name="password"
+                              value={formData.password}
+                              onChange={handleInputChange}
+                              className="w-full px-4 py-2 border rounded-md border-gray-300 pr-10 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute top-9 right-3 text-gray-600"
+                            >
+                              {showPassword ? (
+                                <EyeOff size={20} />
+                              ) : (
+                                <Eye size={20} />
+                              )}
+                            </button>
+                          </div>
+
+                          <div className="relative">
+                            <label className="block text-sm font-medium mb-1">
+                              Confirm Password *
+                            </label>
+                            <input
+                              type={showConfirmPassword ? "text" : "password"}
+                              name="confirmPassword"
+                              value={formData.confirmPassword}
+                              onChange={handleInputChange}
+                              className="w-full px-4 py-2 border rounded-md border-gray-300 pr-10 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowConfirmPassword(!showConfirmPassword)
+                              }
+                              className="absolute top-9 right-3 text-gray-600"
+                            >
+                              {showConfirmPassword ? (
+                                <EyeOff size={20} />
+                              ) : (
+                                <Eye size={20} />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Submit Button */}
+                      <div className="text-center pt-6">
+                        <button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className={`bg-purple-600 hover:bg-purple-700 text-white font-medium px-8 py-3 rounded-lg shadow-lg transition ${
+                            isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                        >
+                          {isSubmitting ? "Processing..." : "Submit (F2)"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -190,14 +517,22 @@ const AddMember = () => {
                         <label className="block text-sm font-medium mb-1">
                           Sponsor Name *
                         </label>
-                        <input
-                          type="text"
-                          name="sponsorName"
-                          value={formData.sponsorName}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                          required
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            name="sponsorName"
+                            value={formData.sponsorName}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none bg-gray-50"
+                            required
+                            readOnly
+                          />
+                          {isFetchingSponsor && (
+                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                              <Loader className="w-4 h-4 animate-spin text-purple-600" />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

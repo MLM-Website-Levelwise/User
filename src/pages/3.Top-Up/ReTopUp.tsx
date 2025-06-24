@@ -16,6 +16,8 @@ interface Invoice {
   remainingBalance: number;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 type PlanType = "growth" | "profit-sharing";
 
 const ReTopUp = () => {
@@ -49,7 +51,7 @@ const ReTopUp = () => {
         });
 
         // Fetch Re-Top Up wallet balance
-        const response = await axios.get('https://user-qn5p.onrender.com/re-top-up-wallet-balance', {
+        const response = await axios.get(`${API_BASE_URL}/re-top-up-wallet-balance`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { member_id: memberData.member_id }
         });
@@ -82,7 +84,7 @@ const ReTopUp = () => {
 
     // Force all IDs to strings
     const response = await axios.post(
-      "https://user-qn5p.onrender.com/re-top-up",
+      `${API_BASE_URL}/re-top-up`,
       {
         memberId: String(memberData.member_id), // Force string
         planType: selectedPlan,

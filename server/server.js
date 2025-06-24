@@ -380,6 +380,75 @@ app.get('/members', authenticateToken, async (req, res) => {
   }
 });
 
+
+// Add this new route to your backend
+app.get('/members/check-sponsor', authenticateToken, async (req, res) => {
+  try {
+    const { member_id } = req.query;
+    const currentUserMemberId = req.user.member_id; // Assuming your auth middleware adds this
+
+    if (!member_id) {
+      return res.status(400).json({ error: 'Member ID is required' });
+    }
+
+    // First check if the requested member is the current user
+    if (member_id === currentUserMemberId) {
+      const { data: member, error } = await supabase
+        .from('members')
+        .select('name')
+        .eq('member_id', member_id)
+        .single();
+
+      if (error) throw error;
+      if (!member) return res.status(404).json({ error: 'Member not found' });
+
+      return res.json({ name: member.name });
+    }
+
+    // If not the current user, check if it's in their downline
+    const { data: downlineMember, error: downlineError } = await supabase
+      .from('members')
+      .select('name')
+      .eq('member_id', member_id)
+      .eq('sponsor_code', currentUserMemberId)
+      .single();
+
+    if (downlineError) throw downlineError;
+    if (!downlineMember) {
+      return res.status(403).json({ error: 'You can only view your own information or your direct referrals' });
+    }
+
+    res.json({ name: downlineMember.name });
+  } catch (error) {
+    console.error('Check sponsor error:', error);
+    res.status(500).json({ error: 'Failed to fetch sponsor information' });
+  }
+});
+
+// Add this endpoint to check activation status
+app.get('/check-activation-status', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.member_id;
+    
+    const { data: member, error } = await supabase
+      .from('members')
+      .select('active_status, package')
+      .eq('member_id', memberId)
+      .single();
+
+    if (error) throw error;
+    if (!member) return res.status(404).json({ error: 'Member not found' });
+
+    res.json({
+      isActive: member.active_status,
+      package: member.package
+    });
+  } catch (error) {
+    console.error('Error checking activation:', error);
+    res.status(500).json({ error: 'Failed to check activation status' });
+  }
+});
+
 // Get direct members with pagination (updated to include position)
 app.get('/direct-members', authenticateToken, async (req, res) => {
   try {
@@ -686,7 +755,7 @@ app.get('/level-wise-team', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Member not found' });
     }
 
-    // Recursive function to get all downline members with levels
+    // Recursive function to get all downline members with levels and top-up data
     async function getDownlineMembers(sponsorId, currentLevel = 1, maxLevel = 6) {
       if (currentLevel > maxLevel) return [];
 
@@ -697,13 +766,41 @@ app.get('/level-wise-team', authenticateToken, async (req, res) => {
 
       if (error || !directMembers) return [];
 
+      // Get member IDs for fetching top-up data
+      const memberIds = directMembers.map(m => m.member_id);
+
+      // Fetch latest top-up for each member
+      const { data: topUpData, error: topUpError } = await supabase
+        .from('main_balance_transactions')
+        .select('activated_member_id, transaction_date, amount')
+        .in('activated_member_id', memberIds)
+        .eq('transaction_type', 'member_activation')
+        .order('transaction_date', { ascending: false });
+
+      if (topUpError) throw topUpError;
+
+      // Create a map of member_id to their latest top-up
+      const topUpMap = new Map();
+      topUpData.forEach(transaction => {
+        if (!topUpMap.has(transaction.activated_member_id)) {
+          topUpMap.set(transaction.activated_member_id, {
+            topup_date: transaction.transaction_date,
+            topup_amount: transaction.amount
+          });
+        }
+      });
+
       let members = [];
       for (const member of directMembers) {
+        const topUpInfo = topUpMap.get(member.member_id) || {};
+        
         const memberWithLevel = {
           ...member,
           level: currentLevel,
           doj: member.date_of_joining,
-          status: member.active_status ? 'Active' : 'InActive'
+          status: member.active_status ? 'Active' : 'InActive',
+          topup_date: topUpInfo.topup_date || null,
+          topup_amount: topUpInfo.topup_amount || null
         };
         members.push(memberWithLevel);
         
@@ -715,7 +812,7 @@ app.get('/level-wise-team', authenticateToken, async (req, res) => {
       return members;
     }
 
-    // Get all downline members up to 6 levels deep
+    // Get all downline members up to 6 levels deep with top-up data
     const downlineMembers = await getDownlineMembers(currentMember.member_id);
 
     res.json({
@@ -724,7 +821,9 @@ app.get('/level-wise-team', authenticateToken, async (req, res) => {
         member_id: currentMember.member_id,
         name: currentMember.name,
         level: 0,
-        status: 'Active'
+        status: 'Active',
+        topup_date: null, // Current member doesn't have top-up in this context
+        topup_amount: null
       },
       teamMembers: downlineMembers
     });
@@ -761,9 +860,9 @@ app.get('/my-member', authenticateToken, async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Recursive function to get all downline members
+    // Recursive function to get all downline members with top-up data
     async function getDownlineMembers(sponsorId) {
-      // Get direct referrals
+      // Get direct referrals (only first level downline)
       const { data: directMembers, error } = await supabase
         .from('members')
         .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, active_status, position')
@@ -771,7 +870,39 @@ app.get('/my-member', authenticateToken, async (req, res) => {
 
       if (error || !directMembers) return [];
 
-      let allMembers = [...directMembers];
+      // Get member IDs for fetching top-up data
+      const memberIds = directMembers.map(m => m.member_id);
+
+      // Fetch latest top-up for each member
+      const { data: topUpData, error: topUpError } = await supabase
+        .from('main_balance_transactions')
+        .select('activated_member_id, transaction_date, amount')
+        .in('activated_member_id', memberIds)
+        .ilike('transaction_type', '%activation%')
+        .order('transaction_date', { ascending: false });
+
+      if (topUpError) throw topUpError;
+
+      // Create a map of member_id to their latest top-up
+      const topUpMap = new Map();
+      topUpData.forEach(transaction => {
+        if (!topUpMap.has(transaction.activated_member_id)) {
+          topUpMap.set(transaction.activated_member_id, {
+            topup_date: transaction.transaction_date,
+            topup_amount: transaction.amount
+          });
+        }
+      });
+
+      // Add top-up data to direct members
+      let allMembers = directMembers.map(member => {
+        const topUpInfo = topUpMap.get(member.member_id) || {};
+        return {
+          ...member,
+          topup_date: topUpInfo.topup_date || null,
+          topup_amount: topUpInfo.topup_amount || null
+        };
+      });
       
       // Recursively get downline for each direct member
       for (const member of directMembers) {
@@ -785,25 +916,51 @@ app.get('/my-member', authenticateToken, async (req, res) => {
     // Get all members (either all for admin or downline for member)
     let members;
     if (rootMemberId) {
-      // Get the downline for a member (including the member themselves)
+      // Get ONLY the downline for a member (excluding the member themselves)
       members = await getDownlineMembers(rootMemberId);
-      // Add the root member if not already included
-      const { data: rootMember, error: rootError } = await supabase
-        .from('members')
-        .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, active_status, position')
-        .eq('member_id', rootMemberId)
-        .single();
-      if (!rootError && rootMember) {
-        members = [rootMember, ...members.filter(m => m.member_id !== rootMemberId)];
-      }
+      
+      // No need to add root member anymore since we only want downline
     } else {
-      // Admin gets all members
+      // Admin gets all members with top-up data
       const { data: allMembers, error } = await supabase
         .from('members')
         .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, active_status, position');
       
       if (error) throw error;
-      members = allMembers;
+      
+      // Get all member IDs for top-up data
+      const memberIds = allMembers.map(m => m.member_id);
+      
+      // Fetch top-up data for all members
+      const { data: topUpData, error: topUpError } = await supabase
+        .from('main_balance_transactions')
+        .select('activated_member_id, transaction_date, amount')
+        .in('activated_member_id', memberIds)
+        .eq('transaction_type', 'member_activation')
+        .order('transaction_date', { ascending: false });
+
+      if (topUpError) throw topUpError;
+
+      // Create a map of member_id to their latest top-up
+      const topUpMap = new Map();
+      topUpData.forEach(transaction => {
+        if (!topUpMap.has(transaction.activated_member_id)) {
+          topUpMap.set(transaction.activated_member_id, {
+            topup_date: transaction.transaction_date,
+            topup_amount: transaction.amount
+          });
+        }
+      });
+
+      // Add top-up data to all members
+      members = allMembers.map(member => {
+        const topUpInfo = topUpMap.get(member.member_id) || {};
+        return {
+          ...member,
+          topup_date: topUpInfo.topup_date || null,
+          topup_amount: topUpInfo.topup_amount || null
+        };
+      });
     }
 
     res.json({
@@ -834,29 +991,57 @@ app.get('/direct-referrals', authenticateToken, async (req, res) => {
 
     const sponsorCode = currentMember.member_id;
 
-    // Fetch only direct referrals
-    const { data: directMembers, error, count } = await supabase
+    // Fetch direct referrals
+    const { data: directMembers, error: membersError } = await supabase
       .from('members')
       .select('id, member_id, name, sponsor_code, package, date_of_joining, active_status, position')
       .eq('sponsor_code', sponsorCode);
 
-    if (error) throw error;
+    if (membersError) throw membersError;
 
-    // Format the response to match the required fields
-    const formattedMembers = directMembers.map(member => ({
-      member_id: member.member_id,
-      member_name: member.name,
-      position: member.position || 'N/A', // Default to 'N/A' if not set
-      date_of_joining: member.date_of_joining,
-      topup_date: null, // Not in schema, set to null for now
-      topup_amount: null, // Not in schema, set to null for now
-      package: member.package,
-      status: member.active_status ? 'Active' : 'Inactive'
-    }));
+    // Get member IDs for fetching top-up data
+    const memberIds = directMembers.map(m => m.member_id);
+
+    // Fetch latest top-up for each member
+    const { data: topUpData, error: topUpError } = await supabase
+      .from('main_balance_transactions')
+      .select('activated_member_id, transaction_date, amount')
+      .in('activated_member_id', memberIds)
+      .eq('transaction_type', 'member_activation')
+      .order('transaction_date', { ascending: false });
+
+    if (topUpError) throw topUpError;
+
+    // Create a map of member_id to their latest top-up
+    const topUpMap = new Map();
+    topUpData.forEach(transaction => {
+      if (!topUpMap.has(transaction.activated_member_id)) {
+        topUpMap.set(transaction.activated_member_id, {
+          topup_date: transaction.transaction_date,
+          topup_amount: transaction.amount
+        });
+      }
+    });
+
+    // Format the response
+    const formattedMembers = directMembers.map(member => {
+      const topUpInfo = topUpMap.get(member.member_id) || {};
+      
+      return {
+        member_id: member.member_id,
+        member_name: member.name,
+        position: member.position || 'N/A',
+        date_of_joining: member.date_of_joining,
+        topup_date: topUpInfo.topup_date || null,
+        topup_amount: topUpInfo.topup_amount || null,
+        package: member.package,
+        status: member.active_status ? 'Active' : 'Inactive'
+      };
+    });
 
     res.json({
       members: formattedMembers,
-      total: count || 0
+      total: directMembers.length
     });
   } catch (error) {
     console.error('Get direct referrals error:', error);
@@ -1059,7 +1244,18 @@ app.post('/self-activate', authenticateToken, async (req, res) => {
     const memberId = req.user.member_id;
     const { planType, packageName, amount } = req.body;
 
-    // 1. Find the latest Main Wallet transaction
+    // 1. Get member details (for name)
+    const { data: member, error: memberFetchError } = await supabase
+      .from('members')
+      .select('member_id, name')
+      .eq('member_id', memberId)
+      .single();
+
+    if (memberFetchError || !member) {
+      throw new Error('Member not found');
+    }
+
+    // 2. Find latest Main Wallet transaction
     const { data: mainWallet, error: walletError } = await supabase
       .from('wallet_transactions')
       .select('*')
@@ -1072,16 +1268,16 @@ app.post('/self-activate', authenticateToken, async (req, res) => {
     if (walletError) throw walletError;
     if (!mainWallet) throw new Error('Main Wallet not found');
 
-    // 2. Calculate new balance
+    // 3. Calculate new balance
     const newBalance = Number(mainWallet.amount) - Number(amount);
     
-    // 3. Update the existing Main Wallet record
+    // 4. Update Main Wallet
     const { data: updatedWallet, error: updateError } = await supabase
       .from('wallet_transactions')
       .update({
         amount: newBalance,
         notes: `Deducted ${amount} for ${packageName || planType} activation`,
-        updated_at: new Date().toISOString() // Now this column exists
+        updated_at: new Date().toISOString()
       })
       .eq('id', mainWallet.id)
       .select()
@@ -1089,8 +1285,27 @@ app.post('/self-activate', authenticateToken, async (req, res) => {
 
     if (updateError) throw updateError;
 
-    // 4. Update member status
-    const { data: updatedMember, error: memberError } = await supabase
+    // 5. Create main_balance_transactions record (key change is here)
+    const { data: balanceTransaction, error: balanceError } = await supabase
+      .from('main_balance_transactions')
+      .insert({
+        member_id: memberId,               // Who performed the activation
+        transaction_type: 'activation',    // Kept as 'activation'
+        plan_type: planType === 'growth' ? packageName : planType,
+        amount: amount,
+        transaction_date: new Date().toISOString(),
+        status: 'completed',
+        notes: `Self activation for ${packageName || planType} package`,
+        activated_member_id: memberId,      // Same as member_id for self-activation
+        activated_member_name: member.name  // Member's own name
+      })
+      .select()
+      .single();
+
+    if (balanceError) throw balanceError;
+
+    // 6. Update member status
+    const { data: updatedMember, error: memberUpdateError } = await supabase
       .from('members')
       .update({
         active_status: true,
@@ -1101,12 +1316,13 @@ app.post('/self-activate', authenticateToken, async (req, res) => {
       .select()
       .single();
 
-    if (memberError) throw memberError;
+    if (memberUpdateError) throw memberUpdateError;
 
     res.json({
       success: true,
       newBalance,
-      transaction: updatedWallet,
+      walletTransaction: updatedWallet,
+      balanceTransaction: balanceTransaction,
       member: updatedMember
     });
 
@@ -1127,56 +1343,173 @@ app.post('/activate-member', authenticateToken, async (req, res) => {
     const { memberId, planType, amount } = req.body;
     const activatorId = req.user.member_id.toString();
 
-    // 1. Get LATEST Main Wallet balance
-    const { data: latestTx, error: txError } = await supabase
+    // Input validation
+    if (!memberId || !planType || !amount) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Get member data
+    const { data: memberData, error: memberError } = await supabase
+      .from('members')
+      .select('name, active_status')
+      .eq('member_id', memberId)
+      .single();
+
+    if (memberError || !memberData) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    if (memberData.active_status) {
+      return res.status(400).json({ error: 'Member already active' });
+    }
+
+    // Get activator data
+    const { data: activatorData } = await supabase
+      .from('members')
+      .select('name')
+      .eq('member_id', activatorId)
+      .single();
+
+    // Get wallet balance
+    const { data: walletData } = await supabase
       .from('wallet_transactions')
-      .select('amount')
+      .select('amount, id')
       .eq('member_id', activatorId)
       .eq('transaction_type', 'Main Wallet')
       .order('transaction_date', { ascending: false })
       .limit(1);
 
-    if (txError || !latestTx.length) throw new Error('Wallet not found');
-    const currentBalance = latestTx[0].amount;
+    if (!walletData || walletData.length === 0) {
+      return res.status(400).json({ error: 'Wallet not found' });
+    }
 
-    // 2. Calculate NEW balance
-    const newBalance = currentBalance - amount;
-    if (newBalance < 0) {
+    const currentBalance = walletData[0].amount;
+    if (currentBalance < amount) {
       return res.status(400).json({ error: 'Insufficient funds' });
     }
 
-    // 3. UPDATE existing Main Wallet record (no new row)
-    const { error: updateError } = await supabase
+    // Perform all operations in a transaction
+    const { error: transactionError } = await supabase
+      .from('main_balance_transactions')
+      .insert({
+        member_id: activatorId,
+        transaction_type: 'member_activation',
+        plan_type: planType,
+        amount: amount,
+        activated_member_id: memberId,
+        activated_member_name: memberData.name,
+        notes: `Activated by ${activatorData.name} (${activatorId})`
+      });
+
+    if (transactionError) throw transactionError;
+
+    // Update wallet
+    const { error: walletError } = await supabase
       .from('wallet_transactions')
       .update({
-        amount: newBalance,
-        notes: `Deducted ${amount} for ${planType} activation`,
+        amount: currentBalance - amount,
+        notes: `Deducted ${amount} for activating ${memberData.name}`,
         updated_at: new Date().toISOString()
       })
-      .eq('member_id', activatorId)
-      .eq('transaction_type', 'Main Wallet')
-      .order('transaction_date', { ascending: false })
-      .limit(1);
+      .eq('id', walletData[0].id);
 
-    if (updateError) throw updateError;
+    if (walletError) throw walletError;
 
-    // 4. Activate member
-    await supabase
+    // Activate member
+    const { error: memberUpdateError } = await supabase
       .from('members')
-      .update({ 
+      .update({
         active_status: true,
-        package: planType 
+        package: planType,
+        updated_at: new Date().toISOString()
       })
       .eq('member_id', memberId);
 
-    res.json({ 
+    if (memberUpdateError) throw memberUpdateError;
+
+    res.json({
       success: true,
-      newBalance: newBalance
+      newBalance: currentBalance - amount,
+      activatedMember: {
+        id: memberId,
+        name: memberData.name,
+        plan: planType
+      }
     });
 
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Activation failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Activation failed',
+      details: error.message
+    });
+  }
+});
+
+app.get('/topup-statement', authenticateToken, async (req, res) => {
+  try {
+    console.log('Fetching topup statement for user:', req.user);
+    
+    // First get the current user's member_id
+    const { data: currentMember, error: memberError } = await supabase
+      .from('members')
+      .select('member_id')
+      .eq('id', req.user.memberId)
+      .single();
+
+    if (memberError || !currentMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    const currentMemberId = currentMember.member_id;
+
+    // Now fetch only transactions where this user is the activator
+    const { data, error } = await supabase
+      .from('main_balance_transactions')
+      .select(`
+        id,
+        member_id,
+        activated_member_id,
+        activated_member_name,
+        plan_type,
+        amount,
+        status,
+        transaction_date
+      `)
+      .eq('transaction_type', 'member_activation')
+      .eq('member_id', currentMemberId)  // Only transactions done by this user
+      .order('transaction_date', { ascending: false });
+
+    if (error) {
+      console.error('Database error:', error);
+      return res.status(500).json({ error: 'Database query failed' });
+    }
+
+    console.log('Retrieved data count:', data?.length);
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'No transactions found' });
+    }
+
+    const formattedData = data.map(item => ({
+      'sl no': item.id,
+      'mem id': item.activated_member_id,
+      'mem name': item.activated_member_name,
+      'top up date': item.transaction_date,
+      'plan': item.plan_type,
+      'amt': item.amount,
+      'status': item.status
+    }));
+
+    res.json(formattedData);
+
+  } catch (error) {
+    console.error('Server error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
   }
 });
 
@@ -1281,6 +1614,92 @@ app.get('/re-top-up-wallet-balance', authenticateToken, async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to fetch Re-Top Up balance'
+    });
+  }
+});
+
+
+// Add this endpoint to your server code
+app.get('/self-activation-report', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.member_id; // Get member ID from JWT token
+
+    // 1. Get activation details from main_balance_transactions
+    const { data: activations, error: activationError } = await supabase
+      .from('main_balance_transactions')
+      .select(`
+        id,
+        transaction_type,
+        plan_type,
+        amount,
+        transaction_date,
+        status,
+        notes
+      `)
+      .eq('member_id', memberId)
+      .eq('transaction_type', 'activation')
+      .order('transaction_date', { ascending: false });
+
+    if (activationError) throw activationError;
+
+    // 2. Get re-top up transactions
+    const { data: reTopups, error: reTopupError } = await supabase
+      .from('re_top_up_transactions')
+      .select(`
+        id,
+        plan_type,
+        amount,
+        transaction_date,
+        status
+      `)
+      .eq('member_id', memberId)
+      .order('transaction_date', { ascending: false });
+
+    if (reTopupError) throw reTopupError;
+
+    // 3. Combine and format the data
+    const formattedActivations = activations.map(act => ({
+      id: act.id,
+      date: act.transaction_date,
+      userId: memberId,
+      transactionType: act.transaction_type,
+      plan: act.plan_type,
+      package: `$${act.amount}`,
+      amount: act.amount,
+      status: act.status,
+      isReTopup: false
+    }));
+
+    const formattedReTopups = reTopups.map(topup => ({
+      id: topup.id,
+      date: topup.transaction_date,
+      userId: memberId,
+      transactionType: 'Re Topup',
+      plan: topup.plan_type,
+      package: `$${topup.amount}`,
+      amount: topup.amount,
+      status: topup.status,
+      isReTopup: true
+    }));
+
+    // Combine both arrays and sort by date (newest first)
+    const allTransactions = [...formattedActivations, ...formattedReTopups]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .map((txn, index) => ({
+        ...txn,
+        slNo: index + 1 // Add serial number
+      }));
+
+    res.json({
+      success: true,
+      transactions: allTransactions
+    });
+
+  } catch (error) {
+    console.error('Self activation report error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch activation report'
     });
   }
 });

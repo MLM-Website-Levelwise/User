@@ -38,6 +38,8 @@ interface Invoice {
   remainingBalance: number;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 type PlanType = "growth" | "profit-sharing";
 
 const MemberActivation = () => {
@@ -91,7 +93,7 @@ const MemberActivation = () => {
         const member_id = currentUser.id;
         const token = localStorage.getItem("token");
         const response = await axios.get(
-          "https://user-qn5p.onrender.com/member-wallet-balance",
+          `${API_BASE_URL}/member-wallet-balance`,
           {
             headers: { Authorization: `Bearer ${token}` },
             params: { member_id }
@@ -124,7 +126,7 @@ const MemberActivation = () => {
         return "";
       }
 
-      const response = await axios.get(`https://user-qn5p.onrender.com/members?member_id=${memberId}`, {
+      const response = await axios.get(`${API_BASE_URL}/members?member_id=${memberId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -168,7 +170,7 @@ const MemberActivation = () => {
     const token = localStorage.getItem("token");
 
     // 1. Get current balance before activation
-    const balanceResponse = await axios.get('https://user-qn5p.onrender.com/member-wallet-balance', {
+    const balanceResponse = await axios.get(`${API_BASE_URL}/member-wallet-balance`, {
       headers: { Authorization: `Bearer ${token}` },
       params: { member_id: currentUser.id }
     });
@@ -176,7 +178,7 @@ const MemberActivation = () => {
 
     // 2. Send activation request
     const response = await axios.post(
-      "https://user-qn5p.onrender.com/activate-member",
+      `${API_BASE_URL}/activate-member`,
       {
         memberId: memberId.toString(),
         planType: selectedPlan,

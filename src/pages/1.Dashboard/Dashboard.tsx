@@ -33,6 +33,8 @@ interface DashboardData {
   };
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,7 @@ const Dashboard = () => {
           return;
         }
 
-        const response = await axios.get("https://user-qn5p.onrender.com/member-dashboard", {
+        const response = await axios.get(`${API_BASE_URL}/member-dashboard`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -130,7 +132,7 @@ const Dashboard = () => {
                 <Card className="border-0 shadow-md bg-gradient-to-br from-purple-700 to-purple-800 text-white">
                   <CardHeader className="flex flex-row items-center justify-between p-4">
                     <CardTitle className="text-sm font-medium">
-                      Direct Members
+                      Direct Active Members
                     </CardTitle>
                     <UserPlus className="w-5 h-5" />
                   </CardHeader>
@@ -165,14 +167,15 @@ const Dashboard = () => {
                         ? 'Active Member'
                         : 'Inactive Member'}
                     </p>
+                    <p>Top up date - Amount - pkg</p>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Wallet Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> */}
                 {/* Main Wallet Card */}
-                <Card className="border-0 shadow-md bg-gradient-to-br from-indigo-700 to-indigo-800 text-white">
+                {/* <Card className="border-0 shadow-md bg-gradient-to-br from-indigo-700 to-indigo-800 text-white">
                   <CardHeader className="flex flex-row items-center justify-between p-4">
                     <CardTitle className="text-sm font-medium">
                       Main Wallet Balance
@@ -187,10 +190,10 @@ const Dashboard = () => {
                       Available funds for withdrawals
                     </p>
                   </CardContent>
-                </Card>
+                </Card> */}
 
                 {/* Re-Topup Wallet Card */}
-                <Card className="border-0 shadow-md bg-gradient-to-br from-cyan-700 to-cyan-800 text-white">
+                {/* <Card className="border-0 shadow-md bg-gradient-to-br from-cyan-700 to-cyan-800 text-white">
                   <CardHeader className="flex flex-row items-center justify-between p-4">
                     <CardTitle className="text-sm font-medium">
                       Re-Topup Wallet
@@ -205,8 +208,8 @@ const Dashboard = () => {
                       Funds available for reinvestment
                     </p>
                   </CardContent>
-                </Card>
-              </div>
+                </Card> */}
+              {/* </div> */}
               
             </div>
           </main>

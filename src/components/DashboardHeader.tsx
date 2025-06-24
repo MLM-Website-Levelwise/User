@@ -13,7 +13,7 @@ interface MemberData {
   sponsor_code: string;
   package: string;
 }
-
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export function DashboardHeader() {
   const [memberData, setMemberData] = useState<MemberData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +30,7 @@ export function DashboardHeader() {
         }
 
         const response = await axios.get(
-          "https://user-qn5p.onrender.com/member-details",
+          `${API_BASE_URL}/member-details`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -122,7 +122,7 @@ export function DashboardHeader() {
             {memberData?.name || "Member"}
           </div>
           <div className="text-gray-500">
-            PRN{memberData?.member_id || "000000"}
+            {memberData?.member_id || "000000"}
           </div>
         </div>
       </div>

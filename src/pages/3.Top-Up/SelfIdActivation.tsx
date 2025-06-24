@@ -38,6 +38,7 @@ interface Invoice {
 }
 
 type PlanType = "growth" | "profit-sharing";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const SelfActivation = () => {
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
@@ -47,17 +48,17 @@ const SelfActivation = () => {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isAlreadyActive, setIsAlreadyActive] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [activationChecked, setActivationChecked] = useState<boolean>(false);
 
-  // Get member data from localStorage
   // Get member data from localStorage safely
-const memberDataString = localStorage.getItem("member");
-const memberData = memberDataString ? JSON.parse(memberDataString) : {};
-const currentUser = {
-  id: memberData.member_id || "PRN000000",
-  name: memberData.name || "Member",
-  package: memberData.package || "",
-  active_status: memberData.active_status || false
-};
+  const memberDataString = localStorage.getItem("member");
+  const memberData = memberDataString ? JSON.parse(memberDataString) : {};
+  const currentUser = {
+    id: memberData.member_id || "PRN000000",
+    name: memberData.name || "Member",
+    package: memberData.package || "",
+    active_status: memberData.active_status || false
+  };
 
   // Package data for Growth Plan
   const growthPackages: Package[] = [
@@ -86,49 +87,44 @@ const currentUser = {
   // Fetch wallet balance and activation status
   useEffect(() => {
     const fetchData = async () => {
-  try {
-    setIsLoading(true);
-    const token = localStorage.getItem("token");
-    
-    // Get member_id directly from your UI component (currentUser.id)
-    const member_id = currentUser.id; // This comes from your shown div
-    
-    // Debug: Verify we have the correct member_id
-    console.log("Fetching balance for member:", member_id);
+      try {
+        setIsLoading(true);
+        const token = localStorage.getItem("token");
+        
+        // First check activation status from server
+        const activationResponse = await axios.get(
+          `${API_BASE_URL}/check-activation-status`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
 
-    const response = await axios.get(
-      "https://user-qn5p.onrender.com/member-wallet-balance",
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { member_id } // Send the member_id from UI
+        if (activationResponse.data.isActive) {
+          setIsAlreadyActive(true);
+          setActivationChecked(true);
+          return;
+        }
+
+        // If not active, fetch wallet balance
+        const balanceResponse = await axios.get(
+          `${API_BASE_URL}/member-wallet-balance`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { member_id: currentUser.id }
+          }
+        );
+
+        setWalletBalance(balanceResponse.data.balance);
+        setActivationChecked(true);
+        
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast.error(error.response?.data?.error || "Failed to load data");
+        setWalletBalance(0);
+      } finally {
+        setIsLoading(false);
       }
-    );
-
-    // Debug: Check the full API response
-    console.log("API Response:", response.data);
-
-    if (!response.data.success) {
-      throw new Error(response.data.error || "Failed to fetch balance");
-    }
-
-    // This will now show ONLY Main Wallet transactions
-    setWalletBalance(response.data.balance);
-
-     if (currentUser.active_status) {
-        setIsAlreadyActive(true);
-      }
-    
-    // Debug: Confirm the balance being set
-    console.log("Set wallet balance to:", response.data.balance);
-    
-  } catch (error) {
-    console.error("Error fetching balance:", error);
-    toast.error(error.message || "Failed to load wallet balance");
-    setWalletBalance(0); // Fallback to 0 if error
-  } finally {
-    setIsLoading(false);
-  }
-};
+    };
 
     fetchData();
   }, []);
@@ -154,71 +150,71 @@ const currentUser = {
   };
 
   const handleActivation = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) throw new Error("No authentication token");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No authentication token");
 
-    const response = await axios.post(
-      'https://user-qn5p.onrender.com/self-activate',
-      {
-        planType: selectedPlan,
-        packageName: selectedPlan === 'growth' ? selectedPackage?.name : null,
-        amount: getActivationAmount()
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const response = await axios.post(
+        `${API_BASE_URL}/self-activate`,
+        {
+          planType: selectedPlan,
+          packageName: selectedPlan === 'growth' ? selectedPackage?.name : null,
+          amount: getActivationAmount()
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
+      );
+
+      if (!response.data.success) {
+        throw new Error(response.data.error || "Activation failed");
       }
-    );
 
-    if (!response.data.success) {
-      throw new Error(response.data.error || "Activation failed");
+      // Update local state
+      const updatedMember = {
+        ...memberData,
+        active_status: true,
+        package: selectedPlan === "growth" ? selectedPackage?.name : selectedPlan
+      };
+      localStorage.setItem("member", JSON.stringify(updatedMember));
+
+      setWalletBalance(response.data.newBalance);
+      setIsAlreadyActive(true);
+      
+      // Create invoice
+      const newInvoice: Invoice = {
+        invoiceId: "INV" + Date.now().toString().slice(-8),
+        memberName: currentUser.name,
+        memberId: currentUser.id,
+        topUpBy: `${currentUser.name} (${currentUser.id})`,
+        planType: selectedPlan,
+        amount: getActivationAmount(),
+        activationDate: new Date().toLocaleDateString(),
+        remainingBalance: response.data.newBalance,
+      };
+
+      if (selectedPlan === "growth" && selectedPackage) {
+        newInvoice.packageName = selectedPackage.name;
+      }
+
+      setInvoice(newInvoice);
+      toast.success("Account activated successfully!");
+
+    } catch (error) {
+      console.error("Activation error details:", {
+        message: error.message,
+        response: error.response?.data
+      });
+      toast.error(error.response?.data?.error || error.message || "Activation failed");
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    // Update local state
-    const updatedMember = {
-      ...memberData,
-      active_status: true,
-      package: selectedPlan === "growth" ? selectedPackage?.name : selectedPlan
-    };
-    localStorage.setItem("member", JSON.stringify(updatedMember));
-
-    setWalletBalance(response.data.newBalance);
-    setIsAlreadyActive(true);
-    
-    // Create invoice
-    const newInvoice: Invoice = {
-      invoiceId: "INV" + Date.now().toString().slice(-8),
-      memberName: currentUser.name,
-      memberId: currentUser.id,
-      topUpBy: `${currentUser.name} (${currentUser.id})`,
-      planType: selectedPlan,
-      amount: getActivationAmount(),
-      activationDate: new Date().toLocaleDateString(),
-      remainingBalance: response.data.newBalance,
-    };
-
-    if (selectedPlan === "growth" && selectedPackage) {
-      newInvoice.packageName = selectedPackage.name;
-    }
-
-    setInvoice(newInvoice);
-    toast.success("Account activated successfully!");
-
-  } catch (error) {
-    console.error("Activation error details:", {
-      message: error.message,
-      response: error.response?.data
-    });
-    toast.error(error.response?.data?.error || error.message || "Activation failed");
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-  // If already active, show different view
+  // If already active, show permanent success view
   if (isAlreadyActive) {
     return (
       <SidebarProvider>
@@ -228,20 +224,40 @@ const currentUser = {
             <DashboardHeader />
             <main className="flex-1 flex items-center justify-center">
               <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-                <div className="bg-green-100 p-4 rounded-full inline-flex mb-4">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
+                <div className="bg-gradient-to-r from-green-400 to-green-500 p-4 rounded-full inline-flex mb-4">
+                  <CheckCircle className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                  Account Already Active
+                  ACTIVATION SUCCESSFUL! 🎉
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  Your account is already activated. Self activation is a one-time procedure.
+                  Your account is already activated with the {currentUser.package} package.
                 </p>
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <p className="font-medium text-blue-800">
-                    Current Package: {currentUser.package}
+                    You can now enjoy all member benefits!
                   </p>
                 </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  // Show loading state while checking activation
+  if (!activationChecked) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-gray-50">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col">
+            <DashboardHeader />
+            <main className="flex-1 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                <Loader className="w-8 h-8 animate-spin text-blue-600" />
+                <p className="text-gray-600">Checking activation status...</p>
               </div>
             </main>
           </div>
@@ -452,33 +468,27 @@ const currentUser = {
                   {/* Activate Button */}
                   <div className="text-center mb-6">
                     <button
-  onClick={handleActivation}
-  disabled={
-    isLoading ||
-    !selectedPlan ||
-    (selectedPlan === "growth" && !selectedPackage) ||
-    walletBalance < getActivationAmount() ||
-    isAlreadyActive // Add this condition
-  }
-  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-8 rounded-lg font-bold text-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-3 shadow-lg mx-auto"
->
-  {isLoading ? (
-    <>
-      <Loader className="w-5 h-5 animate-spin" />
-      PROCESSING...
-    </>
-  ) : isAlreadyActive ? ( // Add this condition
-    <>
-      <CheckCircle className="w-5 h-5" />
-      ACCOUNT ACTIVATED
-    </>
-  ) : (
-    <>
-      <UserPlus className="w-5 h-5" />
-      ACTIVATE ACCOUNT
-    </>
-  )}
-</button>
+                      onClick={handleActivation}
+                      disabled={
+                        isLoading ||
+                        !selectedPlan ||
+                        (selectedPlan === "growth" && !selectedPackage) ||
+                        walletBalance < getActivationAmount()
+                      }
+                      className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-8 rounded-lg font-bold text-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-3 shadow-lg mx-auto"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader className="w-5 h-5 animate-spin" />
+                          PROCESSING...
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-5 h-5" />
+                          ACTIVATE ACCOUNT
+                        </>
+                      )}
+                    </button>
                   </div>
 
                   {/* Invoice Display */}

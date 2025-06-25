@@ -678,7 +678,7 @@ async function countDownline(memberId, count = 0) {
 app.get('/member-dashboard', authenticateToken, async (req, res) => {
   try {
     const memberId = req.user.memberId;
-    const memberIdStr = req.user.member_id; // Make sure this is in your JWT
+    const memberIdStr = req.user.member_id;
 
     // 1. Get basic member info
     const { data: member, error: memberError } = await supabase
@@ -691,14 +691,17 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Member not found' });
     }
 
-    // 2. Get sponsor count (direct referrals)
-    const { count: sponsorCount } = await supabase
+    // 2. Get sponsor count (direct referrals) and count active direct referrals
+    const { count: sponsorCount, data: directReferrals } = await supabase
       .from('members')
-      .select('*', { count: 'exact', head: true })
+      .select('*', { count: 'exact' })
       .eq('sponsor_code', member.member_id);
 
-    // 3. Get downline count (recursive)
-    const downlineCount = await countDownline(member.member_id);
+    // Count active direct referrals
+    const activeDirectReferrals = directReferrals?.filter(ref => ref.active_status==true).length || 0;
+
+    // 3. Get downline count (recursive) and count active downline members
+    const { totalDownline, activeDownline } = await countDownlineWithActivity(member.member_id);
 
     // 4. Get business volumes (simplified example)
     const leftBusiness = 1250;
@@ -715,7 +718,9 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
       },
       counts: {
         sponsor: sponsorCount || 0,
-        downline: downlineCount || 0
+        active_direct_referrals: activeDirectReferrals,
+        downline: totalDownline || 0,
+        active_members: activeDownline || 0
       },
       business: {
         left: leftBusiness,
@@ -737,6 +742,39 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Helper function to count downline with activity status
+async function countDownlineWithActivity(memberId) {
+  let totalCount = 0;
+  let activeCount = 0;
+  const queue = [memberId];
+  const seen = new Set();
+
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    
+    if (seen.has(currentId)) continue;
+    seen.add(currentId);
+
+    // Get all members sponsored by currentId
+    const { data: downlineMembers } = await supabase
+      .from('members')
+      .select('member_id, active_status')
+      .eq('sponsor_code', currentId);
+
+    if (downlineMembers && downlineMembers.length > 0) {
+      for (const member of downlineMembers) {
+        if (!seen.has(member.member_id)) {
+          queue.push(member.member_id);
+          totalCount++;
+          if (member.active_status) activeCount++;
+        }
+      }
+    }
+  }
+
+  return { totalDownline: totalCount, activeDownline: activeCount };
+}
 
 // Get level-wise team data
 app.get('/level-wise-team', authenticateToken, async (req, res) => {

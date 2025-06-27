@@ -710,8 +710,8 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
     const { data: latestTopup } = await supabase
       .from('main_balance_transactions')
       .select('transaction_date, amount, plan_type')
-      .eq('member_id', member.member_id)
-      .eq('transaction_type', 'activation') // Assuming 'topup' is the transaction type for top-ups
+      .eq('activated_member_id', member.member_id)
+      .ilike('transaction_type', '%activation%') // Assuming 'topup' is the transaction type for top-ups
       .order('transaction_date', { ascending: false })
       .limit(1)
       .single();

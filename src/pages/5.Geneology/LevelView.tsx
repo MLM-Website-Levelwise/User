@@ -87,25 +87,29 @@ const LevelTeam = () => {
   }
 
   // Combine current member with team members for display
-  const allTeamData = [
-    ...teamData.teamMembers.map(member => ({
-      id: member.id,
-      memberId: member.member_id,
-      member: member.name,
-      sponsorCode: member.sponsor_code,
-      sponsorName: member.sponsor_name,
-      doj: member.date_of_joining,
-      topup_date: member.topup_date 
-        ? new Date(member.topup_date).toLocaleDateString('en-GB') 
-        : "N/A",
-      topup_amount: member.topup_amount 
-        ? `$${member.topup_amount.toFixed(2)}` 
-        : "N/A",
-      status: member.active_status ? "Active" : "InActive",
-      level: member.level,
-      totalretopup: "N/A"
-    }))
-  ];
+  // Combine current member with team members for display
+const allTeamData = [
+  ...teamData.teamMembers.map(member => ({
+    id: member.id,
+    memberId: member.member_id,
+    member: member.name,
+    sponsorCode: member.sponsor_code,
+    sponsorName: member.sponsor_name,
+    doj: member.date_of_joining,
+    topup_date: member.topup_date 
+      ? new Date(member.topup_date).toLocaleDateString('en-GB') 
+      : "N/A",
+    topup_amount: member.topup_amount 
+      ? `$${member.topup_amount.toFixed(2)}` 
+      : "N/A",
+    status: member.active_status ? "Active" : "InActive",
+    level: member.level,
+    totalretopup: member.total_retopup 
+      ? `$${member.total_retopup.toFixed(2)}` 
+      : "$0.00", // Updated this line
+    total_business: member.total_business
+  }))
+];
 
   // Apply filters
   let filteredData = allTeamData;
@@ -304,6 +308,9 @@ const LevelTeam = () => {
                     Total Re Top up
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
+  Total Business
+</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-sm font-medium">
@@ -342,6 +349,9 @@ const LevelTeam = () => {
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {member.totalretopup || "N/A"}
                     </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+  {member.total_business ? `$${member.total_business.toFixed(2)}` : "$0.00"}
+</td>
                     <td className="px-4 py-3 text-sm">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${

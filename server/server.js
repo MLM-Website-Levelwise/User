@@ -674,7 +674,6 @@ async function countDownline(memberId, count = 0) {
   return count;
 }
 
-// Updated member-dashboard endpoint
 app.get('/member-dashboard', authenticateToken, async (req, res) => {
   try {
     const memberId = req.user.memberId;
@@ -698,7 +697,7 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
       .eq('sponsor_code', member.member_id);
 
     // Count active direct referrals
-    const activeDirectReferrals = directReferrals?.filter(ref => ref.active_status==true).length || 0;
+    const activeDirectReferrals = directReferrals?.filter(ref => ref.active_status === true).length || 0;
 
     // 3. Get downline count (recursive) and count active downline members
     const { totalDownline, activeDownline } = await countDownlineWithActivity(member.member_id);
@@ -707,6 +706,16 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
     const leftBusiness = 1250;
     const rightBusiness = 1250;
 
+    // 5. Get latest top-up transaction
+    const { data: latestTopup } = await supabase
+      .from('main_balance_transactions')
+      .select('transaction_date, amount, plan_type')
+      .eq('member_id', member.member_id)
+      .eq('transaction_type', 'activation') // Assuming 'topup' is the transaction type for top-ups
+      .order('transaction_date', { ascending: false })
+      .limit(1)
+      .single();
+
     res.json({
       member: {
         id: member.id,
@@ -714,7 +723,12 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
         name: member.name,
         status: member.active_status ? 'ACTIVE' : 'INACTIVE',
         package: member.package,
-        sponsor_code: member.sponsor_code
+        sponsor_code: member.sponsor_code,
+        topup_info: latestTopup ? {
+          date: latestTopup.transaction_date,
+          amount: latestTopup.amount,
+          package: latestTopup.plan_type
+        } : null
       },
       counts: {
         sponsor: sponsorCount || 0,
@@ -743,7 +757,7 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
   }
 });
 
-// Helper function to count downline with activity status
+// Helper function remains the same
 async function countDownlineWithActivity(memberId) {
   let totalCount = 0;
   let activeCount = 0;
@@ -812,18 +826,55 @@ app.get('/level-wise-team', authenticateToken, async (req, res) => {
         .from('main_balance_transactions')
         .select('activated_member_id, transaction_date, amount')
         .in('activated_member_id', memberIds)
-        .eq('transaction_type', 'member_activation')
+        .ilike('transaction_type', '%activation%')
         .order('transaction_date', { ascending: false });
 
-      if (topUpError) throw topUpError;
+      // Get profit-sharing business - MAIN TABLE uses activated_member_id
+      const { data: mainBusiness } = await supabase
+        .from('main_balance_transactions')
+        .select('activated_member_id, amount')
+        .in('activated_member_id', memberIds)
+        .eq('plan_type', 'profit-sharing');
 
-      // Create a map of member_id to their latest top-up
+      // RE-TOPUP TABLE uses member_id
+      const { data: retopupBusiness } = await supabase
+        .from('re_top_up_transactions')
+        .select('member_id, amount')
+        .in('member_id', memberIds)
+        .eq('plan_type', 'profit-sharing');
+
+      // NEW: Fetch all re-topup amounts for each member
+      const { data: allRetopups } = await supabase
+        .from('re_top_up_transactions')
+        .select('member_id, amount')
+        .in('member_id', memberIds);
+
+      // Calculate total re-topup per member
+      const retopupMap = new Map();
+      allRetopups?.forEach(txn => {
+        retopupMap.set(txn.member_id, (retopupMap.get(txn.member_id) || 0) + txn.amount);
+      });
+
+      // Calculate total business per member
+      const businessMap = new Map();
+      
+      // Process main balance transactions (activated_member_id)
+      mainBusiness?.forEach(txn => {
+        businessMap.set(txn.activated_member_id, (businessMap.get(txn.activated_member_id) || 0) + txn.amount);
+      });
+      
+      // Process re-topup transactions (member_id)
+      retopupBusiness?.forEach(txn => {
+        businessMap.set(txn.member_id, (businessMap.get(txn.member_id) || 0) + txn.amount);
+      });
+
+      // Create top-up map
       const topUpMap = new Map();
-      topUpData.forEach(transaction => {
-        if (!topUpMap.has(transaction.activated_member_id)) {
-          topUpMap.set(transaction.activated_member_id, {
-            topup_date: transaction.transaction_date,
-            topup_amount: transaction.amount
+      topUpData?.forEach(txn => {
+        if (!topUpMap.has(txn.activated_member_id)) {
+          topUpMap.set(txn.activated_member_id, {
+            topup_date: txn.transaction_date,
+            topup_amount: txn.amount
           });
         }
       });
@@ -832,17 +883,32 @@ app.get('/level-wise-team', authenticateToken, async (req, res) => {
       for (const member of directMembers) {
         const topUpInfo = topUpMap.get(member.member_id) || {};
         
-        const memberWithLevel = {
+        // Get business from both sources without double-counting
+        const mainBusinessAmount = mainBusiness
+          ?.filter(t => t.activated_member_id === member.member_id)
+          .reduce((sum, t) => sum + t.amount, 0) || 0;
+          
+        const retopupBusinessAmount = retopupBusiness
+          ?.filter(t => t.member_id === member.member_id)
+          .reduce((sum, t) => sum + t.amount, 0) || 0;
+        
+        const totalBusiness = mainBusinessAmount + retopupBusinessAmount;
+        
+        // NEW: Get total re-topup amount for this member
+        const totalRetopup = retopupMap.get(member.member_id) || 0;
+        
+        members.push({
           ...member,
           level: currentLevel,
           doj: member.date_of_joining,
           status: member.active_status ? 'Active' : 'InActive',
           topup_date: topUpInfo.topup_date || null,
-          topup_amount: topUpInfo.topup_amount || null
-        };
-        members.push(memberWithLevel);
+          topup_amount: topUpInfo.topup_amount || null,
+          total_business: totalBusiness,
+          total_retopup: totalRetopup // NEW: Add total re-topup amount
+        });
         
-        // Recursively get their downline
+        // Recursively get downline
         const downline = await getDownlineMembers(member.member_id, currentLevel + 1, maxLevel);
         members = members.concat(downline);
       }
@@ -861,7 +927,8 @@ app.get('/level-wise-team', authenticateToken, async (req, res) => {
         level: 0,
         status: 'Active',
         topup_date: null, // Current member doesn't have top-up in this context
-        topup_amount: null
+        topup_amount: null,
+        total_retopup: 0 // Current member's re-topup would be 0 or you can fetch if needed
       },
       teamMembers: downlineMembers
     });

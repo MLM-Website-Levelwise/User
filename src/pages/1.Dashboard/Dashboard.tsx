@@ -16,6 +16,11 @@ import { useNavigate } from "react-router-dom";
 interface DashboardData {
   member: {
     status: string;
+    topup_info?: {
+      date: string;
+      amount: number;
+      package: string;
+    };
   };
   counts: {
     downline: number;
@@ -41,30 +46,31 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          navigate("/login");
-          return;
-        }
-
-        const response = await axios.get(`${API_BASE_URL}/member-dashboard`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        setDashboardData(response.data);
-      } catch (err) {
-        console.error("Failed to fetch dashboard data:", err);
-      } finally {
-        setLoading(false);
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/login");
+        return;
       }
-    };
 
-    fetchDashboardData();
-  }, [navigate]);
+      const response = await axios.get(`${API_BASE_URL}/member-dashboard`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      console.log("API Response:", response.data); // Add this line
+      setDashboardData(response.data);
+    } catch (err) {
+      console.error("Failed to fetch dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchDashboardData();
+}, [navigate]);
 
   if (loading) {
     return (
@@ -147,29 +153,42 @@ const Dashboard = () => {
                 </Card>
 
                 {/* Status Card */}
-                <Card className={`border-0 shadow-md ${
-                  dashboardData?.member.status === 'ACTIVE'
-                    ? 'bg-gradient-to-br from-emerald-700 to-emerald-800'
-                    : 'bg-gradient-to-br from-rose-700 to-rose-800'
-                } text-white`}>
-                  <CardHeader className="flex flex-row items-center justify-between p-4">
-                    <CardTitle className="text-sm font-medium">
-                      Your Status
-                    </CardTitle>
-                    <Shield className="w-5 h-5" />
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="text-2xl font-bold">
-                      {dashboardData?.member.status || 'INACTIVE'}
-                    </div>
-                    <p className="text-xs opacity-80 mt-1">
-                      {dashboardData?.member.status === 'ACTIVE'
-                        ? 'Active Member'
-                        : 'Inactive Member'}
-                    </p>
-                    <p>Top up date - Amount - pkg</p>
-                  </CardContent>
-                </Card>
+                {/* Status Card */}
+<Card className={`border-0 shadow-md ${
+  dashboardData?.member.status === 'ACTIVE'
+    ? 'bg-gradient-to-br from-emerald-700 to-emerald-800'
+    : 'bg-gradient-to-br from-rose-700 to-rose-800'
+} text-white`}>
+  <CardHeader className="flex flex-row items-center justify-between p-4">
+    <CardTitle className="text-sm font-medium">
+      Your Status
+    </CardTitle>
+    <Shield className="w-5 h-5" />
+  </CardHeader>
+  <CardContent className="p-4 pt-0">
+    <div className="text-2xl font-bold">
+      {dashboardData?.member.status || 'INACTIVE'}
+    </div>
+    <p className="text-xs opacity-80 mt-1">
+      {dashboardData?.member.status === 'ACTIVE'
+        ? 'Active Member'
+        : 'Inactive Member'}
+    </p>
+    {dashboardData?.member.topup_info && (
+      <>
+        <p className="text-xs mt-2">
+          Top up: {new Date(dashboardData.member.topup_info.date).toLocaleDateString()}
+        </p>
+        <p className="text-xs">
+          Amount: ${dashboardData.member.topup_info.amount}
+        </p>
+        <p className="text-xs">
+          Package: {dashboardData.member.topup_info.package}
+        </p>
+      </>
+    )}
+  </CardContent>
+</Card>
               </div>
 
 

@@ -22,6 +22,8 @@ import WalletTransfer from "./pages/3.Top-Up/WalletTransfer";
 import SelfPurchase from "./pages/4.Purchase/SelfPurchase";
 import SelfPurchaseReport from "./pages/4.Purchase/SelfPurchaseReport";
 
+import ProfitSharingIncome from "./pages/6. Income/ProfitSharingIncome";
+
 import TreeView from "./pages/5.Geneology/TreeView";
 import LevelView from "./pages/5.Geneology/LevelView";
 
@@ -63,6 +65,9 @@ const App = () => (
             path="/purchase/self-purchase-report"
             element={<SelfPurchaseReport />}
           /> */}
+
+          {/* Income */}
+          <Route path="/income/profitsharing-income" element={<ProfitSharingIncome />} />
 
           {/* Withdrawal */}
           <Route path="/withdrawal/send-request" element={<SendRequest />} />

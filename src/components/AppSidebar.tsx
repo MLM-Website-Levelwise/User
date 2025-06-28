@@ -144,6 +144,28 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
+    title: "Income",
+    icon: Briefcase,
+    submenu: [
+      {
+        title: "Profit Sharing Income",
+        icon: UserCheck,
+        path: "/income/profitsharing-income",
+      },
+      // {
+      //   title: "Level-wise Income",
+      //   icon: UserCheck,
+      //   path: "/income/levelwise-income",
+      // },
+      // {
+      //   title: "Growth-wise Income",
+      //   icon: UserCheck,
+      //   path: "/income/levelwise-income",
+      // },
+    ],
+  },
+
+  {
     title: "Withdrawal",
     icon: DollarSign,
     submenu: [
@@ -159,27 +181,27 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
-  {
-    title: "Income",
-    icon: Briefcase,
-    submenu: [
-      {
-        title: "Direct Income",
-        icon: UserCheck,
-        path: "/income/direct-income",
-      },
-      {
-        title: "Level-wise Income",
-        icon: UserCheck,
-        path: "/income/levelwise-income",
-      },
-      {
-        title: "Growth-wise Income",
-        icon: UserCheck,
-        path: "/income/levelwise-income",
-      },
-    ],
-  },
+  // {
+  //   title: "Income",
+  //   icon: Briefcase,
+  //   submenu: [
+  //     {
+  //       title: "Direct Income",
+  //       icon: UserCheck,
+  //       path: "/income/direct-income",
+  //     },
+  //     {
+  //       title: "Level-wise Income",
+  //       icon: UserCheck,
+  //       path: "/income/levelwise-income",
+  //     },
+  //     {
+  //       title: "Growth-wise Income",
+  //       icon: UserCheck,
+  //       path: "/income/levelwise-income",
+  //     },
+  //   ],
+  // },
   {
     title: "Settings",
     icon: Settings,

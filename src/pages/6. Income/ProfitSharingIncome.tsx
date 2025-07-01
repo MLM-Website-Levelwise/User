@@ -40,38 +40,49 @@ const ProfitSharing_Income = () => {
   const [loading, setLoading] = useState(true);
   const [earnings, setEarnings] = useState<ProfitSharingItem[]>([]);
   const [error, setError] = useState("");
+  const [debugInfo, setDebugInfo] = useState("");
 
   useEffect(() => {
-    const fetchEarnings = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
-        if (!token) return;
+        if (!token) {
+          setError("No authentication token found");
+          return;
+        }
 
-        const response = await axios.get(`${API_BASE_URL}/profit-sharing-income`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
+        // First check if we have any investments
+        const checkResponse = await axios.get(
+          `${API_BASE_URL}/check-profit-sharing-investments`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-        // Transform the API response to match our interface
-        const transformedData = response.data.map((item: any, index: number) => ({
-          id: index + 1,
-          payoutDate: item.payoutDate,
-          profitSharingBonus: item.amount,
-          status: item.status,
-          source: item.source
-        }));
+        setDebugInfo(JSON.stringify(checkResponse.data, null, 2));
 
-        setEarnings(transformedData);
+        if (!checkResponse.data.hasInvestments) {
+          setError("No profit sharing investments found for your account");
+          setLoading(false);
+          return;
+        }
+
+        // Then fetch the earnings
+        const earningsResponse = await axios.get(
+          `${API_BASE_URL}/profit-sharing`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        setEarnings(earningsResponse.data);
       } catch (err) {
-        setError("Failed to fetch earnings data");
-        console.error(err);
+        setError(`Failed to fetch data: ${err.response?.data?.error || err.message}`);
+        console.error('API Error:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchEarnings();
+    fetchData();
+    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const filteredData = useMemo(() => {
@@ -163,33 +174,7 @@ const ProfitSharing_Income = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Paid Payouts</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {filteredData.filter(item => item.status === 'Paid').length}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <div className="w-6 h-6 bg-green-600 rounded"></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Pending Payouts</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {filteredData.filter(item => item.status === 'Pending').length}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <div className="w-6 h-6 bg-yellow-600 rounded"></div>
-            </div>
-          </div>
-        </div>
+        
       </div>
 
       {/* Filter Section */}

@@ -1836,96 +1836,368 @@ app.get('/self-activation-report', authenticateToken, async (req, res) => {
 
 //Income
 // Add this to your backend routes
-app.get('/profit-sharing-income', authenticateToken, async (req, res) => {
-  try {
-    const memberId = req.user.memberId;
+// app.get('/profit-sharing-income', authenticateToken, async (req, res) => {
+//   try {
+//     const memberId = req.user.memberId;
     
-    // Get all profit-sharing investments (both main balance and re-topup)
-    const [{ data: mainInvestments }, { data: retopupInvestments }] = await Promise.all([
+//     // Get all profit-sharing investments (both main balance and re-topup)
+//     const [{ data: mainInvestments }, { data: retopupInvestments }] = await Promise.all([
+//       supabase
+//         .from('main_balance_transactions')
+//         .select('id, transaction_date, amount, status, activated_member_id as member_id')
+//         .eq('activated_member_id', req.user.member_id)
+//         .ilike('transaction_type', '%profit-sharing%')
+//         .order('transaction_date', { ascending: true }),
+      
+//       supabase
+//         .from('re_top_up_transactions')
+//         .select('id, transaction_date, amount, status, member_id')
+//         .eq('member_id', req.user.member_id)
+//         .eq('plan_type', 'profit-sharing')
+//         .order('transaction_date', { ascending: true })
+//     ]);
+
+//     // Combine both investment types
+//     const allInvestments = [
+//       ...(mainInvestments || []),
+//       ...(retopupInvestments || [])
+//     ];
+
+//     // Calculate earnings for each investment
+//     const earnings = [];
+//     const now = new Date();
+//     const totalDays = 750; // 25 months (25 * 30 days)
+    
+//     for (const investment of allInvestments) {
+//       const investmentDate = new Date(investment.transaction_date);
+//       let daysPassed = 0;
+//       let totalEarnings = 0;
+//       let lastPayoutDate = null;
+      
+//       // Calculate days passed
+//       const tempDate = new Date(investmentDate);
+//       while (tempDate <= now && daysPassed < totalDays) {
+//         daysPassed++;
+        
+//         // Calculate daily earnings (6% over 25 months)
+//         const dailyEarning = (investment.amount * 0.06) / totalDays;
+//         totalEarnings += dailyEarning;
+        
+//         // Create weekly payouts (every 7 days)
+//         if (daysPassed % 7 === 0) {
+//           const payoutAmount = dailyEarning * 7;
+//           earnings.push({
+//             investmentId: investment.id,
+//             payoutDate: new Date(tempDate),
+//             amount: payoutAmount,
+//             status: tempDate < now ? 'Paid' : 'Pending',
+//             source: investment.transaction_date === investment.transaction_date ? 
+//                    'Main Balance' : 'Re-Topup'
+//           });
+//           lastPayoutDate = new Date(tempDate);
+//         }
+//         tempDate.setDate(tempDate.getDate() + 1);
+//       }
+      
+//       // Add pending earnings for incomplete weeks
+//       const remainingDays = daysPassed % 7;
+//       if (remainingDays > 0) {
+//         const dailyEarning = (investment.amount * 0.06) / totalDays;
+//         earnings.push({
+//           investmentId: investment.id,
+//           payoutDate: lastPayoutDate ? 
+//             new Date(lastPayoutDate.setDate(lastPayoutDate.getDate() + 7)) : 
+//             new Date(investmentDate.setDate(investmentDate.getDate() + 7)),
+//           amount: dailyEarning * remainingDays,
+//           status: 'Pending',
+//           source: investment.transaction_date === investment.transaction_date ? 
+//                  'Main Balance' : 'Re-Topup'
+//         });
+//       }
+//     }
+
+//     // Sort earnings by payout date
+//     earnings.sort((a, b) => new Date(a.payoutDate) - new Date(b.payoutDate));
+
+//     res.json(earnings);
+//   } catch (error) {
+//     console.error('Profit sharing income error:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
+
+// app.get('/profit-sharing-income', authenticateToken, async (req, res) => {
+//   try {
+//     const memberId = req.user.member_id; // Standardized to use member_id
+    
+//     // Get all profit-sharing investments (both main balance and re-topup)
+//     const [{ data: mainInvestments }, { data: retopupInvestments }] = await Promise.all([
+//       supabase
+//         .from('main_balance_transactions')
+//         .select('id, transaction_date, amount, status, activated_member_id')
+//         .eq('activated_member_id', memberId)
+//         .ilike('transaction_type', '%profit-sharing%')
+//         .order('transaction_date', { ascending: true }),
+      
+//       supabase
+//         .from('re_top_up_transactions')
+//         .select('id, transaction_date, amount, status, member_id')
+//         .eq('member_id', memberId)
+//         .eq('plan_type', 'profit-sharing')
+//         .order('transaction_date', { ascending: true })
+//     ]);
+
+//     // Combine both investment types with source identification
+//     const allInvestments = [
+//       ...(mainInvestments || []).map(i => ({ ...i, source: 'Main Balance' })),
+//       ...(retopupInvestments || []).map(i => ({ ...i, source: 'Re-Topup' }))
+//     ];
+
+//     // Calculate daily earnings for each investment
+//     const earnings = [];
+//     const now = new Date();
+//     const totalDays = 750; // 25 months (25 * 30 days)
+    
+//     for (const investment of allInvestments) {
+//       const investmentDate = new Date(investment.transaction_date);
+//       let daysPassed = 0;
+      
+//       // Calculate daily earnings from investment date to now or completion
+//       const tempDate = new Date(investmentDate);
+//       while (tempDate <= now && daysPassed < totalDays) {
+//         daysPassed++;
+        
+//         // Calculate daily earnings (6% annual return over 25 months)
+//         const dailyEarning = (investment.amount * 0.06) / totalDays;
+        
+//         earnings.push({
+//           investmentId: investment.id,
+//           payoutDate: new Date(tempDate),
+//           amount: dailyEarning,
+//           status: tempDate < now ? 'Paid' : 'Pending',
+//           source: investment.source
+//         });
+        
+//         tempDate.setDate(tempDate.getDate() + 1);
+//       }
+//     }
+
+//     // Sort earnings by payout date
+//     earnings.sort((a, b) => new Date(a.payoutDate) - new Date(b.payoutDate));
+
+//     // Transform to match frontend expectations with sequential IDs
+//     const response = earnings.map((item, index) => ({
+//       id: index + 1,
+//       payoutDate: item.payoutDate.toISOString(),
+//       profitSharingBonus: item.amount,
+//       status: item.status,
+//       source: item.source
+//     }));
+
+//     res.json(response);
+//   } catch (error) {
+//     console.error('Profit sharing income error:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
+
+// app.get('/profit-sharing-test', authenticateToken, async (req, res) => {
+//   try {
+//     const memberId = req.user.member_id;
+    
+//     console.log(`Fetching profit sharing data for member: ${memberId}`); // Debug log
+    
+//     const [{ data: mainInvestments, error: mainError }, 
+//            { data: retopupInvestments, error: retopupError }] = await Promise.all([
+//       supabase
+//         .from('main_balance_transactions')
+//         .select('id, transaction_date, amount, status, activated_member_id')
+//         .eq('activated_member_id', memberId)
+//         .eq('plan_type', 'profit-sharing'),
+      
+//       supabase
+//         .from('re_top_up_transactions')
+//         .select('id, transaction_date, amount, status, member_id')
+//         .eq('member_id', memberId)
+//         .eq('plan_type', 'profit-sharing')
+//     ]);
+
+//     // Log any errors
+//     if (mainError) console.error('Main balance error:', mainError);
+//     if (retopupError) console.error('Re-topup error:', retopupError);
+
+//     const allInvestments = [
+//       ...(mainInvestments || []).map(i => ({ ...i, source: 'Main Balance' })),
+//       ...(retopupInvestments || []).map(i => ({ ...i, source: 'Re-Topup' }))
+//     ];
+
+//     console.log(`Found ${allInvestments.length} investments`); // Debug log
+
+//     const earnings = [];
+//     const now = new Date();
+    
+//     for (const investment of allInvestments) {
+//       const investmentDate = new Date(investment.transaction_date);
+//       let currentDate = new Date(investmentDate);
+      
+//       // Calculate daily earnings (6% per 20 days = 0.3% per day)
+//       const dailyEarning = investment.amount * 0.003;
+      
+//       // Generate earnings every day (Monday-Friday)
+//       while (currentDate <= now) {
+//         const dayOfWeek = currentDate.getDay();
+        
+//         // Only generate earnings on weekdays (1-5)
+//         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+//           earnings.push({
+//             investmentId: investment.id,
+//             payoutDate: new Date(currentDate),
+//             amount: dailyEarning,
+//             status: currentDate < now ? 'Paid' : 'Pending',
+//             source: investment.source
+//           });
+//         }
+        
+//         // Move to next day (for testing, we'll use current time)
+//         currentDate = new Date(currentDate.getTime() + 86400000); // 1 day
+//       }
+//     }
+
+//     console.log(`Generated ${earnings.length} earnings records`); // Debug log
+
+//     earnings.sort((a, b) => new Date(a.payoutDate) - new Date(b.payoutDate));
+
+//     const response = earnings.map((item, index) => ({
+//       id: index + 1,
+//       payoutDate: item.payoutDate.toISOString(),
+//       profitSharingBonus: item.amount,
+//       status: item.status,
+//       source: item.source
+//     }));
+
+//     res.json(response);
+//   } catch (error) {
+//     console.error('Test profit sharing error:', error);
+//     res.status(500).json({ 
+//       error: 'Internal server error',
+//       details: error.message 
+//     });
+//   }
+// });
+
+app.get('/profit-sharing', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.member_id;
+    
+    console.log(`Fetching profit sharing data for member: ${memberId}`);
+    
+    const [{ data: mainInvestments, error: mainError }, 
+           { data: retopupInvestments, error: retopupError }] = await Promise.all([
       supabase
         .from('main_balance_transactions')
-        .select('id, transaction_date, amount, status, activated_member_id as member_id')
-        .eq('activated_member_id', req.user.member_id)
-        .ilike('transaction_type', '%profit-sharing%')
-        .order('transaction_date', { ascending: true }),
+        .select('id, transaction_date, amount, status, activated_member_id')
+        .eq('activated_member_id', memberId)
+        .eq('plan_type', 'profit-sharing'),
       
       supabase
         .from('re_top_up_transactions')
         .select('id, transaction_date, amount, status, member_id')
-        .eq('member_id', req.user.member_id)
+        .eq('member_id', memberId)
         .eq('plan_type', 'profit-sharing')
-        .order('transaction_date', { ascending: true })
     ]);
 
-    // Combine both investment types
+    if (mainError) console.error('Main balance error:', mainError);
+    if (retopupError) console.error('Re-topup error:', retopupError);
+
     const allInvestments = [
-      ...(mainInvestments || []),
-      ...(retopupInvestments || [])
+      ...(mainInvestments || []).map(i => ({ ...i, source: 'Main Balance' })),
+      ...(retopupInvestments || []).map(i => ({ ...i, source: 'Re-Topup' }))
     ];
 
-    // Calculate earnings for each investment
+    // console.log(`Found ${allInvestments.length} investments`);
+
     const earnings = [];
     const now = new Date();
-    const totalDays = 750; // 25 months (25 * 30 days)
     
     for (const investment of allInvestments) {
       const investmentDate = new Date(investment.transaction_date);
-      let daysPassed = 0;
-      let totalEarnings = 0;
-      let lastPayoutDate = null;
+      let currentDate = new Date(investmentDate);
       
-      // Calculate days passed
-      const tempDate = new Date(investmentDate);
-      while (tempDate <= now && daysPassed < totalDays) {
-        daysPassed++;
+      // Calculate daily earnings (6% per 20 days = 0.3% per day)
+      const dailyEarning = investment.amount * 0.003;
+      
+      // Generate earnings for each weekday (Monday-Friday)
+      while (currentDate <= now) {
+        const dayOfWeek = currentDate.getDay();
         
-        // Calculate daily earnings (6% over 25 months)
-        const dailyEarning = (investment.amount * 0.06) / totalDays;
-        totalEarnings += dailyEarning;
-        
-        // Create weekly payouts (every 7 days)
-        if (daysPassed % 7 === 0) {
-          const payoutAmount = dailyEarning * 7;
+        // Only generate earnings on weekdays (1-5)
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
           earnings.push({
             investmentId: investment.id,
-            payoutDate: new Date(tempDate),
-            amount: payoutAmount,
-            status: tempDate < now ? 'Paid' : 'Pending',
-            source: investment.transaction_date === investment.transaction_date ? 
-                   'Main Balance' : 'Re-Topup'
+            payoutDate: new Date(currentDate),
+            amount: dailyEarning,
+            status: currentDate < now ? 'Paid' : 'Pending',
+            source: investment.source
           });
-          lastPayoutDate = new Date(tempDate);
         }
-        tempDate.setDate(tempDate.getDate() + 1);
-      }
-      
-      // Add pending earnings for incomplete weeks
-      const remainingDays = daysPassed % 7;
-      if (remainingDays > 0) {
-        const dailyEarning = (investment.amount * 0.06) / totalDays;
-        earnings.push({
-          investmentId: investment.id,
-          payoutDate: lastPayoutDate ? 
-            new Date(lastPayoutDate.setDate(lastPayoutDate.getDate() + 7)) : 
-            new Date(investmentDate.setDate(investmentDate.getDate() + 7)),
-          amount: dailyEarning * remainingDays,
-          status: 'Pending',
-          source: investment.transaction_date === investment.transaction_date ? 
-                 'Main Balance' : 'Re-Topup'
-        });
+        
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
       }
     }
 
-    // Sort earnings by payout date
+    // console.log(`Generated ${earnings.length} earnings records`);
+
     earnings.sort((a, b) => new Date(a.payoutDate) - new Date(b.payoutDate));
 
-    res.json(earnings);
+    const response = earnings.map((item, index) => ({
+      id: index + 1,
+      payoutDate: item.payoutDate.toISOString(),
+      profitSharingBonus: item.amount,
+      status: item.status,
+      source: item.source
+    }));
+
+    res.json(response);
   } catch (error) {
-    console.error('Profit sharing income error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Profit sharing error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
   }
 });
 
+
+// Test endpoint to check if investments exist
+app.get('/check-profit-sharing-investments', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.member_id;
+    
+    const [{ data: mainInvestments }, { data: retopupInvestments }] = await Promise.all([
+      supabase
+        .from('main_balance_transactions')
+        .select('id, amount, transaction_date')
+        .eq('activated_member_id', memberId)
+        .eq('plan_type', 'profit-sharing'),
+      
+      supabase
+        .from('re_top_up_transactions')
+        .select('id, amount, transaction_date')
+        .eq('member_id', memberId)
+        .eq('plan_type', 'profit-sharing')
+    ]);
+
+    res.json({
+      mainBalanceInvestments: mainInvestments || [],
+      reTopupInvestments: retopupInvestments || [],
+      hasInvestments: (mainInvestments?.length || 0) + (retopupInvestments?.length || 0) > 0
+    });
+  } catch (error) {
+    console.error('Check investments error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

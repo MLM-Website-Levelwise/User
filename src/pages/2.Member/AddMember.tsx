@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Loader } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { Eye, EyeOff, Loader } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import axios from 'axios';
+import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -13,15 +13,15 @@ const AddMember = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
-    name: '',
-    dateOfJoining: new Date().toISOString().split('T')[0],
-    mobileNo: '',
-    emailId: '',
-    sponsorCode: '',
-    sponsorName: '',
-    position: 'Left',
-    password: '123456',
-    confirmPassword: ''
+    name: "",
+    dateOfJoining: new Date().toISOString().split("T")[0],
+    mobileNo: "",
+    emailId: "",
+    sponsorCode: "",
+    sponsorName: "",
+    position: "Left",
+    password: "123456",
+    confirmPassword: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -40,11 +40,14 @@ const AddMember = () => {
           return;
         }
 
-        const response = await axios.get(`${API_BASE_URL}/check-activation-status`, {
-          headers: {
-            Authorization: `Bearer ${token}`
+        const response = await axios.get(
+          `${API_BASE_URL}/check-activation-status`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
-        });
+        );
 
         setIsActive(response.data.isActive);
       } catch (error) {
@@ -72,18 +75,23 @@ const AddMember = () => {
         return "";
       }
 
-      const response = await axios.get(`${API_BASE_URL}/members/check-sponsor?member_id=${memberId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const response = await axios.get(
+        `${API_BASE_URL}/members/check-sponsor?member_id=${memberId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
       return response.data.name || "";
     } catch (error) {
       console.error("Error fetching sponsor:", error);
       toast({
         title: "Error",
-        description: error.response?.data?.error || "You can only view your own information or your direct referrals",
+        description:
+          error.response?.data?.error ||
+          "You can only view your own information or your direct referrals",
         variant: "destructive",
       });
       return "";
@@ -92,26 +100,28 @@ const AddMember = () => {
     }
   };
 
-  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = async (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
 
     // Fetch sponsor name when sponsor code changes and has at least 4 characters
     if (name === "sponsorCode" && value.length >= 4) {
       try {
         const sponsorName = await fetchSponsorName(value);
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          sponsorName
+          sponsorName,
         }));
       } catch (error) {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          sponsorName: ""
+          sponsorName: "",
         }));
       }
     }
@@ -127,7 +137,13 @@ const AddMember = () => {
       return false;
     }
 
-    if (!formData.name || !formData.mobileNo || !formData.sponsorCode || !formData.sponsorName || !formData.password) {
+    if (
+      !formData.name ||
+      !formData.mobileNo ||
+      !formData.sponsorCode ||
+      !formData.sponsorName ||
+      !formData.password
+    ) {
       toast({
         title: "Error",
         description: "Please fill all required fields",
@@ -141,9 +157,9 @@ const AddMember = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     setShowConfirmation(true);
   };
 
@@ -153,10 +169,10 @@ const AddMember = () => {
 
     try {
       const response = await fetch(`${API_BASE_URL}/members`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
           name: formData.name,
@@ -164,25 +180,25 @@ const AddMember = () => {
           email: formData.emailId || null,
           sponsor_code: formData.sponsorCode,
           sponsor_name: formData.sponsorName,
-          package: 'N/A',
+          package: "N/A",
           position: formData.position,
           password: formData.password,
-          date_of_joining: formData.dateOfJoining
-        })
+          date_of_joining: formData.dateOfJoining,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to add member');
+        throw new Error(data.error || "Failed to add member");
       }
 
       toast({
         title: "Success",
         description: "Member added successfully",
       });
-      
-      navigate('/member/member-memberlist');
+
+      navigate("/member/member-memberlist");
     } catch (error) {
       toast({
         title: "Error",
@@ -199,7 +215,7 @@ const AddMember = () => {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'F2') {
+    if (e.key === "F2") {
       e.preventDefault();
       handleSubmit(e as any);
     }
@@ -213,7 +229,7 @@ const AddMember = () => {
           <div className="flex-1 flex flex-col">
             <DashboardHeader />
             <main className="flex-1 flex items-center justify-center">
-              <Loader className="w-8 h-8 animate-spin text-purple-600" />
+              <Loader className="w-8 h-8 animate-spin text-blue-600" />
             </main>
           </div>
         </div>
@@ -233,19 +249,23 @@ const AddMember = () => {
                 <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg border border-gray-200 relative">
                   <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-10">
                     <div className="text-center p-8 bg-red-100 rounded-lg border border-red-300 shadow-lg">
-                      <h2 className="text-2xl font-bold text-red-600 mb-4">Account Inactive</h2>
+                      <h2 className="text-2xl font-bold text-red-600 mb-4">
+                        Account Inactive
+                      </h2>
                       <p className="text-lg text-gray-700 mb-6">
-                        You need to activate your account before you can add new members.
+                        You need to activate your account before you can add new
+                        members.
                       </p>
                       <p className="text-gray-600">
-                        Please contact your sponsor or administrator to activate your account.
+                        Please contact your sponsor or administrator to activate
+                        your account.
                       </p>
                     </div>
                   </div>
-                  
+
                   {/* The rest of your form (rendered in the background) */}
                   <div className="opacity-30">
-                    <div className="bg-purple-900 text-white px-6 py-4">
+                    <div className="bg-blue-900 text-white px-6 py-4">
                       <h1 className="text-2xl font-semibold text-center">
                         Membership Form
                       </h1>
@@ -430,7 +450,7 @@ const AddMember = () => {
                         <button
                           type="submit"
                           disabled={isSubmitting}
-                          className={`bg-purple-600 hover:bg-purple-700 text-white font-medium px-8 py-3 rounded-lg shadow-lg transition ${
+                          className={`bg-purple-600 hover:bg-blue-700 text-white font-medium px-8 py-3 rounded-lg shadow-lg transition ${
                             isSubmitting ? "opacity-50 cursor-not-allowed" : ""
                           }`}
                         >
@@ -459,8 +479,12 @@ const AddMember = () => {
             {showConfirmation && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-                  <h3 className="text-xl font-semibold mb-4">Confirm Submission</h3>
-                  <p className="mb-6">Are you sure you want to submit this member information?</p>
+                  <h3 className="text-xl font-semibold mb-4">
+                    Confirm Submission
+                  </h3>
+                  <p className="mb-6">
+                    Are you sure you want to submit this member information?
+                  </p>
                   <div className="flex justify-end space-x-4">
                     <button
                       onClick={cancelSubmission}
@@ -482,7 +506,7 @@ const AddMember = () => {
 
             <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 py-1 px-2">
               <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg border border-gray-200">
-                <div className="bg-purple-900 text-white px-6 py-4">
+                <div className="bg-blue-900 text-white px-6 py-4">
                   <h1 className="text-2xl font-semibold text-center">
                     Membership Form
                   </h1>
@@ -667,7 +691,7 @@ const AddMember = () => {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className={`bg-purple-600 hover:bg-purple-700 text-white font-medium px-8 py-3 rounded-lg shadow-lg transition ${
+                      className={`bg-blue-600 hover:bg-blue-800 text-white font-medium px-8 py-3 rounded-lg shadow-lg transition ${
                         isSubmitting ? "opacity-50 cursor-not-allowed" : ""
                       }`}
                     >

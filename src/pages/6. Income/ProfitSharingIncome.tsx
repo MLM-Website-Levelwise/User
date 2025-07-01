@@ -244,9 +244,9 @@ const ProfitSharing_Income = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Source
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                {/* <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Status
-                </th>
+                </th> */}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -265,11 +265,11 @@ const ProfitSharing_Income = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {item.source}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    {/* <td className="px-6 py-4 whitespace-nowrap">
                       <span className={getStatusBadge(item.status)}>
                         {item.status}
                       </span>
-                    </td>
+                    </td> */}
                   </tr>
                 ))
               ) : (

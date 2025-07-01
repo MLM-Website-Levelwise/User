@@ -29,14 +29,11 @@ export function DashboardHeader() {
           return;
         }
 
-        const response = await axios.get(
-          `${API_BASE_URL}/member-details`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await axios.get(`${API_BASE_URL}/member-details`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         setMemberData(response.data);
       } catch (err) {
@@ -93,42 +90,41 @@ export function DashboardHeader() {
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-3">
-  <div className="flex items-center justify-between">
-    {/* Left: Title & Hamburger */}
-    <div className="flex items-center space-x-4">
-      {/* Hamburger for mobile */}
-      <button
-        className="md:hidden block bg-purple-800 p-2 rounded-lg text-white shadow-md"
-        onClick={() => {
-          document.dispatchEvent(new CustomEvent("toggle-sidebar"));
-        }}
-      >
-        <Menu size={20} />
-      </button>
-      <h1 className="text-2xl font-bold text-gray-900">Prime Next</h1>
-    </div>
+      <div className="flex items-center justify-between">
+        {/* Left: Title & Hamburger */}
+        <div className="flex items-center space-x-4">
+          {/* Hamburger for mobile */}
+          <button
+            className="md:hidden block bg-blue-800 p-2 rounded-lg text-white shadow-md"
+            onClick={() => {
+              document.dispatchEvent(new CustomEvent("toggle-sidebar"));
+            }}
+          >
+            <Menu size={20} />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">Prime Next</h1>
+        </div>
 
-    {/* Right: User Info */}
-    <div className="flex items-center space-x-4">
-      <div className="flex items-center space-x-2 ml-5">
-        <Avatar className="w-8 h-8">
-          <AvatarImage src="./userimg.png" />
-          <AvatarFallback className="bg-primary text-white text-sm">
-            {memberData ? getAvatarInitials(memberData.name) : "US"}
-          </AvatarFallback>
-        </Avatar>
-        <div className="text-sm">
-          <div className="font-semibold text-gray-900">
-            {memberData?.name || "Member"}
-          </div>
-          <div className="text-gray-500">
-            {memberData?.member_id || "000000"}
+        {/* Right: User Info */}
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 ml-5">
+            <Avatar className="w-8 h-8">
+              <AvatarImage src="./userimg.png" />
+              <AvatarFallback className="bg-primary text-white text-sm">
+                {memberData ? getAvatarInitials(memberData.name) : "US"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="text-sm">
+              <div className="font-semibold text-gray-900">
+                {memberData?.name || "Member"}
+              </div>
+              <div className="text-gray-500">
+                {memberData?.member_id || "000000"}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-</header>
-
+    </header>
   );
 }

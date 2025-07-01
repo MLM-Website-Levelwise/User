@@ -152,11 +152,11 @@ const menuItems: MenuItem[] = [
         icon: UserCheck,
         path: "/income/profitsharing-income",
       },
-      // {
-      //   title: "Level-wise Income",
-      //   icon: UserCheck,
-      //   path: "/income/levelwise-income",
-      // },
+      {
+        title: "Growth Income",
+        icon: UserCheck,
+        path: "/income/growth-income",
+      },
       // {
       //   title: "Growth-wise Income",
       //   icon: UserCheck,
@@ -225,16 +225,15 @@ export function AppSidebar() {
 
   // Close mobile menu when route changes
   useEffect(() => {
-  const toggleSidebar = () => {
-    setIsMobileMenuOpen((prev) => !prev);
-  };
+    const toggleSidebar = () => {
+      setIsMobileMenuOpen((prev) => !prev);
+    };
 
-  document.addEventListener("toggle-sidebar", toggleSidebar);
-  return () => {
-    document.removeEventListener("toggle-sidebar", toggleSidebar);
-  };
-}, []);
-
+    document.addEventListener("toggle-sidebar", toggleSidebar);
+    return () => {
+      document.removeEventListener("toggle-sidebar", toggleSidebar);
+    };
+  }, []);
 
   // Function to check if a path is active
   const isPathActive = (path?: string) => {
@@ -305,7 +304,7 @@ export function AppSidebar() {
       {/* Sidebar */}
       <div
         className={`
-          w-64 h-[100dvh] bg-gradient-to-b from-purple-800 via-purple-900 to-purple-950 
+          w-64 h-[100dvh] bg-gradient-to-b from-blue-900 to-blue-950 
           text-white flex flex-col shadow-xl fixed left-0 top-0 z-40
           transform transition-transform duration-300 ease-in-out
           ${
@@ -318,7 +317,7 @@ export function AppSidebar() {
         {/* Close button inside sidebar (top right) */}
         {isMobileMenuOpen && (
           <button
-            className="md:hidden absolute top-[21px] right-4 z-50 bg-purple-800 p-2 rounded-lg shadow-lg text-white"
+            className="md:hidden absolute top-[21px] right-4 z-50 bg-blue-800 p-2 rounded-lg shadow-lg text-white"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             <X size={20} />
@@ -366,14 +365,14 @@ export function AppSidebar() {
                       onClick={() => toggleExpanded(item.title)}
                       className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-200 flex items-center justify-between group ${
                         isMainItemActive(item)
-                          ? "bg-purple-700 text-white shadow-md"
-                          : "hover:bg-purple-700/50 text-white/90 hover:text-white"
+                          ? "bg-blue-700 text-white shadow-md"
+                          : "hover:bg-blue-700/50 text-white/90 hover:text-white"
                       }`}
                     >
                       <div className="flex items-center space-x-3">
                         <item.icon
                           className={`w-5 h-5 ${
-                            isMainItemActive(item) ? "text-purple-300" : ""
+                            isMainItemActive(item) ? "text-blue-300" : ""
                           }`}
                         />
                         <span className="text-sm font-medium">
@@ -383,7 +382,7 @@ export function AppSidebar() {
                       <ChevronDown
                         className={`w-4 h-4 transition-transform duration-200 ${
                           expandedItems.includes(item.title) ? "rotate-180" : ""
-                        } ${isMainItemActive(item) ? "text-purple-300" : ""}`}
+                        } ${isMainItemActive(item) ? "text-blue-300" : ""}`}
                       />
                     </button>
 
@@ -397,7 +396,7 @@ export function AppSidebar() {
                             className={`w-full text-left flex items-center space-x-3 px-3 py-2.5 pl-12 rounded-lg transition-all duration-200 group ${
                               isPathActive(subItem.path)
                                 ? "bg-yellow-600/30 text-yellow-300 shadow-md border border-yellow-500/50"
-                                : "text-white/70 hover:bg-purple-700/30 hover:text-white hover:pl-14"
+                                : "text-white/70 hover:bg-blue-700/30 hover:text-white hover:pl-14"
                             }`}
                           >
                             <subItem.icon
@@ -418,14 +417,14 @@ export function AppSidebar() {
                     onClick={() => handleNavigate(item.path)}
                     className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-200 flex items-center group ${
                       isPathActive(item.path)
-                        ? "bg-purple-700 text-white shadow-md"
-                        : "hover:bg-purple-700/50 text-white/90 hover:text-white"
+                        ? "bg-blue-700 text-white shadow-md"
+                        : "hover:bg-blue-700/50 text-white/90 hover:text-white"
                     }`}
                   >
                     <div className="flex items-center space-x-3">
                       <item.icon
                         className={`w-5 h-5 ${
-                          isPathActive(item.path) ? "text-purple-300" : ""
+                          isPathActive(item.path) ? "text-blue-300" : ""
                         }`}
                       />
                       <span className="text-sm font-medium">{item.title}</span>

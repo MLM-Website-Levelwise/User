@@ -1836,34 +1836,124 @@ app.get('/self-activation-report', authenticateToken, async (req, res) => {
 
 //Income
 // Add this to your backend routes
+// app.get('/profit-sharing-income', authenticateToken, async (req, res) => {
+//   try {
+//     const memberId = req.user.memberId;
+    
+//     // Get all profit-sharing investments (both main balance and re-topup)
+//     const [{ data: mainInvestments }, { data: retopupInvestments }] = await Promise.all([
+//       supabase
+//         .from('main_balance_transactions')
+//         .select('id, transaction_date, amount, status, activated_member_id as member_id')
+//         .eq('activated_member_id', req.user.member_id)
+//         .ilike('transaction_type', '%profit-sharing%')
+//         .order('transaction_date', { ascending: true }),
+      
+//       supabase
+//         .from('re_top_up_transactions')
+//         .select('id, transaction_date, amount, status, member_id')
+//         .eq('member_id', req.user.member_id)
+//         .eq('plan_type', 'profit-sharing')
+//         .order('transaction_date', { ascending: true })
+//     ]);
+
+//     // Combine both investment types
+//     const allInvestments = [
+//       ...(mainInvestments || []),
+//       ...(retopupInvestments || [])
+//     ];
+
+//     // Calculate earnings for each investment
+//     const earnings = [];
+//     const now = new Date();
+//     const totalDays = 750; // 25 months (25 * 30 days)
+    
+//     for (const investment of allInvestments) {
+//       const investmentDate = new Date(investment.transaction_date);
+//       let daysPassed = 0;
+//       let totalEarnings = 0;
+//       let lastPayoutDate = null;
+      
+//       // Calculate days passed
+//       const tempDate = new Date(investmentDate);
+//       while (tempDate <= now && daysPassed < totalDays) {
+//         daysPassed++;
+        
+//         // Calculate daily earnings (6% over 25 months)
+//         const dailyEarning = (investment.amount * 0.06) / totalDays;
+//         totalEarnings += dailyEarning;
+        
+//         // Create weekly payouts (every 7 days)
+//         if (daysPassed % 7 === 0) {
+//           const payoutAmount = dailyEarning * 7;
+//           earnings.push({
+//             investmentId: investment.id,
+//             payoutDate: new Date(tempDate),
+//             amount: payoutAmount,
+//             status: tempDate < now ? 'Paid' : 'Pending',
+//             source: investment.transaction_date === investment.transaction_date ? 
+//                    'Main Balance' : 'Re-Topup'
+//           });
+//           lastPayoutDate = new Date(tempDate);
+//         }
+//         tempDate.setDate(tempDate.getDate() + 1);
+//       }
+      
+//       // Add pending earnings for incomplete weeks
+//       const remainingDays = daysPassed % 7;
+//       if (remainingDays > 0) {
+//         const dailyEarning = (investment.amount * 0.06) / totalDays;
+//         earnings.push({
+//           investmentId: investment.id,
+//           payoutDate: lastPayoutDate ? 
+//             new Date(lastPayoutDate.setDate(lastPayoutDate.getDate() + 7)) : 
+//             new Date(investmentDate.setDate(investmentDate.getDate() + 7)),
+//           amount: dailyEarning * remainingDays,
+//           status: 'Pending',
+//           source: investment.transaction_date === investment.transaction_date ? 
+//                  'Main Balance' : 'Re-Topup'
+//         });
+//       }
+//     }
+
+//     // Sort earnings by payout date
+//     earnings.sort((a, b) => new Date(a.payoutDate) - new Date(b.payoutDate));
+
+//     res.json(earnings);
+//   } catch (error) {
+//     console.error('Profit sharing income error:', error);
+//     res.status(500).json({ error: 'Internal server error' });
+//   }
+// });
+
 app.get('/profit-sharing-income', authenticateToken, async (req, res) => {
   try {
-    const memberId = req.user.memberId;
+    const memberId = req.user.member_id; // Standardized to use member_id
     
     // Get all profit-sharing investments (both main balance and re-topup)
     const [{ data: mainInvestments }, { data: retopupInvestments }] = await Promise.all([
       supabase
         .from('main_balance_transactions')
-        .select('id, transaction_date, amount, status, activated_member_id as member_id')
-        .eq('activated_member_id', req.user.member_id)
+        .select('id, transaction_date, amount, status, activated_member_id')
+        .eq('activated_member_id', memberId)
         .ilike('transaction_type', '%profit-sharing%')
         .order('transaction_date', { ascending: true }),
       
       supabase
         .from('re_top_up_transactions')
         .select('id, transaction_date, amount, status, member_id')
-        .eq('member_id', req.user.member_id)
+        .eq('member_id', memberId)
         .eq('plan_type', 'profit-sharing')
         .order('transaction_date', { ascending: true })
     ]);
 
-    // Combine both investment types
+    // Combine both investment types with source identification
     const allInvestments = [
-      ...(mainInvestments || []),
-      ...(retopupInvestments || [])
+      ...(mainInvestments || []).map(i => ({ ...i, source: 'Main Balance' })),
+      ...(retopupInvestments || []).map(i => ({ ...i, source: 'Re-Topup' }))
     ];
 
-    // Calculate earnings for each investment
+    // Calculate daily earnings for each investment
     const earnings = [];
     const now = new Date();
     const totalDays = 750; // 25 months (25 * 30 days)
@@ -1871,55 +1961,40 @@ app.get('/profit-sharing-income', authenticateToken, async (req, res) => {
     for (const investment of allInvestments) {
       const investmentDate = new Date(investment.transaction_date);
       let daysPassed = 0;
-      let totalEarnings = 0;
-      let lastPayoutDate = null;
       
-      // Calculate days passed
+      // Calculate daily earnings from investment date to now or completion
       const tempDate = new Date(investmentDate);
       while (tempDate <= now && daysPassed < totalDays) {
         daysPassed++;
         
-        // Calculate daily earnings (6% over 25 months)
+        // Calculate daily earnings (6% annual return over 25 months)
         const dailyEarning = (investment.amount * 0.06) / totalDays;
-        totalEarnings += dailyEarning;
         
-        // Create weekly payouts (every 7 days)
-        if (daysPassed % 7 === 0) {
-          const payoutAmount = dailyEarning * 7;
-          earnings.push({
-            investmentId: investment.id,
-            payoutDate: new Date(tempDate),
-            amount: payoutAmount,
-            status: tempDate < now ? 'Paid' : 'Pending',
-            source: investment.transaction_date === investment.transaction_date ? 
-                   'Main Balance' : 'Re-Topup'
-          });
-          lastPayoutDate = new Date(tempDate);
-        }
-        tempDate.setDate(tempDate.getDate() + 1);
-      }
-      
-      // Add pending earnings for incomplete weeks
-      const remainingDays = daysPassed % 7;
-      if (remainingDays > 0) {
-        const dailyEarning = (investment.amount * 0.06) / totalDays;
         earnings.push({
           investmentId: investment.id,
-          payoutDate: lastPayoutDate ? 
-            new Date(lastPayoutDate.setDate(lastPayoutDate.getDate() + 7)) : 
-            new Date(investmentDate.setDate(investmentDate.getDate() + 7)),
-          amount: dailyEarning * remainingDays,
-          status: 'Pending',
-          source: investment.transaction_date === investment.transaction_date ? 
-                 'Main Balance' : 'Re-Topup'
+          payoutDate: new Date(tempDate),
+          amount: dailyEarning,
+          status: tempDate < now ? 'Paid' : 'Pending',
+          source: investment.source
         });
+        
+        tempDate.setDate(tempDate.getDate() + 1);
       }
     }
 
     // Sort earnings by payout date
     earnings.sort((a, b) => new Date(a.payoutDate) - new Date(b.payoutDate));
 
-    res.json(earnings);
+    // Transform to match frontend expectations with sequential IDs
+    const response = earnings.map((item, index) => ({
+      id: index + 1,
+      payoutDate: item.payoutDate.toISOString(),
+      profitSharingBonus: item.amount,
+      status: item.status,
+      source: item.source
+    }));
+
+    res.json(response);
   } catch (error) {
     console.error('Profit sharing income error:', error);
     res.status(500).json({ error: 'Internal server error' });

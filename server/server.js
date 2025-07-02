@@ -711,10 +711,54 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
       .from('main_balance_transactions')
       .select('transaction_date, amount, plan_type')
       .eq('activated_member_id', member.member_id)
-      .ilike('transaction_type', '%activation%') // Assuming 'topup' is the transaction type for top-ups
+      .ilike('transaction_type', '%activation%')
       .order('transaction_date', { ascending: false })
       .limit(1)
       .single();
+
+    // 6. Calculate total profit sharing earnings
+    const [{ data: mainInvestments }, { data: retopupInvestments }] = await Promise.all([
+      supabase
+        .from('main_balance_transactions')
+        .select('id, transaction_date, amount')
+        .eq('activated_member_id', member.member_id)
+        .eq('plan_type', 'profit-sharing'),
+      
+      supabase
+        .from('re_top_up_transactions')
+        .select('id, transaction_date, amount')
+        .eq('member_id', member.member_id)
+        .eq('plan_type', 'profit-sharing')
+    ]);
+
+    const allInvestments = [
+      ...(mainInvestments || []),
+      ...(retopupInvestments || [])
+    ];
+
+    let totalProfitSharing = 0;
+    const now = new Date();
+    
+    for (const investment of allInvestments) {
+      const investmentDate = new Date(investment.transaction_date);
+      let currentDate = new Date(investmentDate);
+      
+      // Calculate daily earnings (6% per 20 days = 0.3% per day)
+      const dailyEarning = investment.amount * 0.003;
+      
+      // Generate earnings for each weekday (Monday-Friday)
+      while (currentDate <= now) {
+        const dayOfWeek = currentDate.getDay();
+        
+        // Only generate earnings on weekdays (1-5)
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          totalProfitSharing += dailyEarning;
+        }
+        
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    }
 
     res.json({
       member: {
@@ -746,7 +790,7 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
         team: 2500
       },
       balances: {
-        fund: 0,
+        fund: totalProfitSharing, // Updated to use calculated profit sharing
         working: 28.2,
         prev_working: 0
       }

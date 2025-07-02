@@ -199,19 +199,22 @@ const Dashboard = () => {
                 </Card>
 
                 {/* Profit Sharing Wallet Card */}
-                <Card className="border-0 shadow-md bg-gradient-to-br from-indigo-500 to-indigo-700 text-white">
-                  <CardHeader className="flex flex-row items-center justify-between p-4">
-                    <CardTitle className="text-xl font-medium">
-                      Profit Sharing Wallet
-                    </CardTitle>
-                    <Wallet className="w-5 h-5" />
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0">
-                    <div className="text-2xl font-bold">
-                      ${dashboardData?.balances.fund?.toFixed(2) || "0.00"}
-                    </div>
-                  </CardContent>
-                </Card>
+<Card className="border-0 shadow-md bg-gradient-to-br from-indigo-500 to-indigo-700 text-white">
+  <CardHeader className="flex flex-row items-center justify-between p-4">
+    <CardTitle className="text-xl font-medium">
+      Profit Sharing Wallet
+    </CardTitle>
+    <Wallet className="w-5 h-5" />
+  </CardHeader>
+  <CardContent className="p-4 pt-0">
+    <div className="text-2xl font-bold">
+      ${dashboardData?.balances.fund?.toFixed(3) || "0.000"}
+    </div>
+    <p className="text-sm opacity-80 mt-1">
+      Total earnings from profit sharing
+    </p>
+  </CardContent>
+</Card>
 
                 {/* Growth Wallet Card */}
                 <Card className="border-0 shadow-md bg-gradient-to-br from-cyan-600 to-cyan-800 text-white">

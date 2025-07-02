@@ -12,7 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const LevelTeam = () => {
   const [teamData, setTeamData] = useState({
     currentMember: null,
-    teamMembers: []
+    teamMembers: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -21,7 +21,7 @@ const LevelTeam = () => {
     member: null,
     topups: [],
     retopups: [],
-    loading: false
+    loading: false,
   });
   const [levelIncome, setLevelIncome] = useState(0);
   const navigate = useNavigate();
@@ -37,8 +37,8 @@ const LevelTeam = () => {
 
         const response = await axios.get(`${API_BASE_URL}/level-wise-team`, {
           headers: {
-            Authorization: `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         });
 
         setTeamData(response.data);
@@ -55,32 +55,35 @@ const LevelTeam = () => {
 
   const fetchMemberTransactions = async (memberId, memberName) => {
     try {
-      setTransactionDetails(prev => ({
+      setTransactionDetails((prev) => ({
         ...prev,
         show: true,
         member: { id: memberId, name: memberName },
-        loading: true
+        loading: true,
       }));
 
       const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_BASE_URL}/member-transactions/${memberId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const response = await axios.get(
+        `${API_BASE_URL}/member-transactions/${memberId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
-      setTransactionDetails(prev => ({
+      setTransactionDetails((prev) => ({
         ...prev,
         topups: response.data.topups,
         retopups: response.data.retopups,
-        loading: false
+        loading: false,
       }));
     } catch (err) {
       console.error("Failed to fetch transactions:", err);
-      setTransactionDetails(prev => ({
+      setTransactionDetails((prev) => ({
         ...prev,
         loading: false,
-        error: "Failed to load transaction details"
+        error: "Failed to load transaction details",
       }));
     }
   };
@@ -112,7 +115,7 @@ const LevelTeam = () => {
     const filteredMembers = teamData.teamMembers.filter(
       (member) => member.level === parseInt(level)
     );
-    
+
     const total = filteredMembers.reduce((sum, member) => {
       return sum + (member.total_business || 0);
     }, 0);
@@ -147,26 +150,26 @@ const LevelTeam = () => {
 
   // Combine current member with team members for display
   const allTeamData = [
-    ...teamData.teamMembers.map(member => ({
+    ...teamData.teamMembers.map((member) => ({
       id: member.id,
       memberId: member.member_id,
       member: member.name,
       sponsorCode: member.sponsor_code,
       sponsorName: member.sponsor_name,
       doj: member.date_of_joining,
-      topup_date: member.topup_date 
-        ? new Date(member.topup_date).toLocaleDateString('en-GB') 
+      topup_date: member.topup_date
+        ? new Date(member.topup_date).toLocaleDateString("en-GB")
         : "N/A",
-      topup_amount: member.topup_amount 
-        ? `$${member.topup_amount.toFixed(2)}` 
+      topup_amount: member.topup_amount
+        ? `$${member.topup_amount.toFixed(2)}`
         : "N/A",
       status: member.active_status ? "Active" : "InActive",
       level: member.level,
-      totalretopup: member.total_retopup 
-        ? `$${member.total_retopup.toFixed(2)}` 
+      totalretopup: member.total_retopup
+        ? `$${member.total_retopup.toFixed(2)}`
         : "$0.00",
-      total_business: member.total_business
-    }))
+      total_business: member.total_business,
+    })),
   ];
 
   // Apply filters
@@ -198,24 +201,32 @@ const LevelTeam = () => {
     );
   }
 
+  // Filter by status (Active/InActive)
+  if (exportFormat !== "All") {
+    filteredData = filteredData.filter((item) => item.status === exportFormat);
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-2 md:p-2">
       {/* Transaction Details Modal */}
       {transactionDetails.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
               <h3 className="text-lg font-semibold">
-                Transaction Details for {transactionDetails.member?.name} ({transactionDetails.member?.id})
+                Transaction Details for {transactionDetails.member?.name} (
+                {transactionDetails.member?.id})
               </h3>
-              <button 
-                onClick={() => setTransactionDetails(prev => ({ ...prev, show: false }))}
+              <button
+                onClick={() =>
+                  setTransactionDetails((prev) => ({ ...prev, show: false }))
+                }
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X size={24} />
               </button>
             </div>
-            
+
             <div className="p-4">
               {transactionDetails.loading ? (
                 <div className="flex justify-center py-8">
@@ -224,24 +235,38 @@ const LevelTeam = () => {
               ) : (
                 <>
                   <div className="mb-8">
-                    <h4 className="text-md font-medium mb-2 text-blue-600">Top-Up Transactions</h4>
+                    <h4 className="text-md font-medium mb-2 text-blue-600">
+                      Top-Up Transactions
+                    </h4>
                     {transactionDetails.topups.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-100">
                             <tr>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Date
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Type
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Plan
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Amount
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Status
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {transactionDetails.topups.map((txn, index) => (
                               <tr key={`topup-${index}`}>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                  {new Date(txn.transaction_date).toLocaleString()}
+                                  {new Date(
+                                    txn.transaction_date
+                                  ).toLocaleString()}
                                 </td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                                   {txn.transaction_type}
@@ -253,9 +278,13 @@ const LevelTeam = () => {
                                   ${txn.amount.toFixed(2)}
                                 </td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm">
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    txn.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      txn.status === "completed"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-yellow-100 text-yellow-800"
+                                    }`}
+                                  >
                                     {txn.status}
                                   </span>
                                 </td>
@@ -265,28 +294,42 @@ const LevelTeam = () => {
                         </table>
                       </div>
                     ) : (
-                      <div className="text-gray-500 py-4">No top-up transactions found</div>
+                      <div className="text-gray-500 py-4">
+                        No top-up transactions found
+                      </div>
                     )}
                   </div>
 
                   <div>
-                    <h4 className="text-md font-medium mb-2 text-green-600">Re-Top-Up Transactions</h4>
+                    <h4 className="text-md font-medium mb-2 text-green-600">
+                      Re-Top-Up Transactions
+                    </h4>
                     {transactionDetails.retopups.length > 0 ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-100">
                             <tr>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Date
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Plan
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Amount
+                              </th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                Status
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
                             {transactionDetails.retopups.map((txn, index) => (
                               <tr key={`retopup-${index}`}>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                  {new Date(txn.transaction_date).toLocaleString()}
+                                  {new Date(
+                                    txn.transaction_date
+                                  ).toLocaleString()}
                                 </td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                                   {txn.plan_type}
@@ -295,9 +338,13 @@ const LevelTeam = () => {
                                   ${txn.amount.toFixed(2)}
                                 </td>
                                 <td className="px-4 py-2 whitespace-nowrap text-sm">
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    txn.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                                  }`}>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      txn.status === "completed"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-yellow-100 text-yellow-800"
+                                    }`}
+                                  >
                                     {txn.status}
                                   </span>
                                 </td>
@@ -307,7 +354,9 @@ const LevelTeam = () => {
                         </table>
                       </div>
                     ) : (
-                      <div className="text-gray-500 py-4">No re-top-up transactions found</div>
+                      <div className="text-gray-500 py-4">
+                        No re-top-up transactions found
+                      </div>
                     )}
                   </div>
                 </>
@@ -316,21 +365,21 @@ const LevelTeam = () => {
           </div>
         </div>
       )}
-
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-gray-600 text-white p-4 rounded-t-lg">
-          <h1 className="text-xl font-semibold">
+        <div className="bg-gray-600 text-white p-3 md:p-4 rounded-t-lg w-full overflow-hidden">
+          <h1 className="text-lg md:text-xl font-semibold truncate">
             List of Levelwise Team Member(s)
           </h1>
-          <p className="text-sm mt-1">
-            Viewing team for: {teamData.currentMember.name} ({teamData.currentMember.member_id})
+          <p className="text-xs md:text-sm mt-1 truncate">
+            Viewing team for: {teamData.currentMember.name} (
+            {teamData.currentMember.member_id})
           </p>
         </div>
 
         {/* Filter Section */}
-        <div className="bg-white p-6 border-l border-r border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div className="bg-white p-3 md:p-6 border-l border-r border-gray-200 w-full overflow-hidden">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 items-end w-full">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Date From
@@ -391,19 +440,24 @@ const LevelTeam = () => {
         </div>
 
         {/* Results Header */}
-        <div className="bg-white px-6 py-4 border-l border-r border-gray-200 flex justify-between items-center">
-          <div>
-            <span className="text-gray-700 font-medium">
+        <div className="bg-white px-3 md:px-6 py-2 md:py-4 border-l border-r border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 w-full overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4">
+            <span className="text-xs md:text-sm text-gray-700 font-medium">
               Total Team Members ({filteredData.length})
             </span>
             {filters.levelNo !== "All" && (
-              <span className="ml-4 text-blue-600 font-medium">
-                Level {filters.levelNo} Total Business: ${levelIncome.toFixed(2)}
-              </span>
+              <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-4">
+                <span className="text-xs md:text-sm text-blue-600 font-medium">
+                  Level {filters.levelNo}
+                </span>
+                <span className="text-xs md:text-sm text-blue-600 font-medium">
+                  Total Business: ${levelIncome.toFixed(2)}
+                </span>
+              </div>
             )}
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 mb-5">
             {/* Export buttons */}
             <button
               onClick={() => handleExport("excel")}
@@ -456,105 +510,118 @@ const LevelTeam = () => {
         {/* Table */}
         <div className="bg-white border border-gray-200 rounded-b-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-600 text-white">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Sl.No
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    DOJ
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Member Id
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Member Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Sponsor Code
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Sponsor Name
-                  </th>
-                  
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Topup Date
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Topup Amount
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Total Re Top up
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Total Business
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium">
-                    Level
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.slice(0, entriesPerPage).map((member, index) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {index + 1}.
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.doj}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      <button 
-                        onClick={() => fetchMemberTransactions(member.memberId, member.member)}
-                        className="text-blue-600 hover:text-blue-800 hover:underline"
-                      >
-                        {member.memberId}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.member}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.sponsorCode}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.sponsorName}
-                    </td>
-                    
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.topup_date || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.topup_amount || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.totalretopup || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.total_business ? `$${member.total_business.toFixed(2)}` : "$0.00"}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          member.status === "Active"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {member.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {member.level}
-                    </td>
+            <div className="min-w-[1024px] md:w-full">
+              {" "}
+              {/* Force minimum width on mobile */}
+              <table className="w-full">
+                <thead className="bg-gray-600 text-white">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Sl.No
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      DOJ
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Member Id
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Member Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Sponsor Code
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Sponsor Name
+                    </th>
+
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Topup Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Topup Amount
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Total Re Top up
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Total Business
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
+                      Level
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredData
+                    .slice(0, entriesPerPage)
+                    .map((member, index) => (
+                      <tr key={member.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {index + 1}.
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.doj}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          <button
+                            onClick={() =>
+                              fetchMemberTransactions(
+                                member.memberId,
+                                member.member
+                              )
+                            }
+                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {member.memberId}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.member}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.sponsorCode}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.sponsorName}
+                        </td>
+
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.topup_date || "N/A"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.topup_amount || "N/A"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.totalretopup || "N/A"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.total_business
+                            ? `$${member.total_business.toFixed(2)}`
+                            : "$0.00"}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              member.status === "Active"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {member.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.level}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -567,9 +634,9 @@ const LevelView = () => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gray-50">
         <AppSidebar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-x-hidden">
           <DashboardHeader />
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-2 md:p-2 overflow-x-hidden">
             <LevelTeam />
           </main>
         </div>

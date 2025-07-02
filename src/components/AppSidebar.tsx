@@ -157,11 +157,11 @@ const menuItems: MenuItem[] = [
         icon: UserCheck,
         path: "/income/growth-income",
       },
-      // {
-      //   title: "Growth-wise Income",
-      //   icon: UserCheck,
-      //   path: "/income/levelwise-income",
-      // },
+      {
+        title: "Direct Income",
+        icon: UserCheck,
+        path: "/income/direct-income",
+      },
     ],
   },
 

@@ -96,7 +96,7 @@ const MemberActivation = () => {
           `${API_BASE_URL}/member-wallet-balance`,
           {
             headers: { Authorization: `Bearer ${token}` },
-            params: { member_id }
+            params: { member_id },
           }
         );
         if (response.data.success) {
@@ -126,11 +126,14 @@ const MemberActivation = () => {
         return "";
       }
 
-      const response = await axios.get(`${API_BASE_URL}/members?member_id=${memberId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      const response = await axios.get(
+        `${API_BASE_URL}/members?member_id=${memberId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
-      });
+      );
 
       if (response.data.members && response.data.members.length > 0) {
         return response.data.members[0].name;
@@ -164,59 +167,65 @@ const MemberActivation = () => {
   };
 
   const handleActivation = async () => {
-  try {
-    setIsLoading(true);
-    const activationAmount = getActivationAmount();
-    const token = localStorage.getItem("token");
+    try {
+      setIsLoading(true);
+      const activationAmount = getActivationAmount();
+      const token = localStorage.getItem("token");
 
-    // 1. Get current balance before activation
-    const balanceResponse = await axios.get(`${API_BASE_URL}/member-wallet-balance`, {
-      headers: { Authorization: `Bearer ${token}` },
-      params: { member_id: currentUser.id }
-    });
-    const currentBalance = balanceResponse.data.balance;
-
-    // 2. Send activation request
-    const response = await axios.post(
-      `${API_BASE_URL}/activate-member`,
-      {
-        memberId: memberId.toString(),
-        planType: selectedPlan === "growth" ? selectedPackage?.name : selectedPlan,
-        amount: activationAmount
-      },
-      {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json" 
+      // 1. Get current balance before activation
+      const balanceResponse = await axios.get(
+        `${API_BASE_URL}/member-wallet-balance`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { member_id: currentUser.id },
         }
+      );
+      const currentBalance = balanceResponse.data.balance;
+
+      // 2. Send activation request
+      const response = await axios.post(
+        `${API_BASE_URL}/activate-member`,
+        {
+          memberId: memberId.toString(),
+          planType:
+            selectedPlan === "growth" ? selectedPackage?.name : selectedPlan,
+          amount: activationAmount,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.data.success) {
+        // 3. Update UI with PRECISE balance
+        setWalletBalance(response.data.newBalance);
+
+        // 4. Show success
+        setInvoice({
+          invoiceId: `INV${Date.now().toString().slice(-8)}`,
+          memberName,
+          memberId,
+          topUpBy: `${currentUser.name} (${currentUser.id})`,
+          planType: selectedPlan!,
+          amount: activationAmount,
+          activationDate: new Date().toLocaleDateString(),
+          remainingBalance: response.data.newBalance,
+          ...(selectedPlan === "growth" && {
+            packageName: selectedPackage?.name,
+          }),
+        });
+
+        toast.success("🎉 ACTIVATION SUCCESSFUL! 🎉");
       }
-    );
-
-    if (response.data.success) {
-      // 3. Update UI with PRECISE balance
-      setWalletBalance(response.data.newBalance);
-      
-      // 4. Show success
-      setInvoice({
-        invoiceId: `INV${Date.now().toString().slice(-8)}`,
-        memberName,
-        memberId,
-        topUpBy: `${currentUser.name} (${currentUser.id})`,
-        planType: selectedPlan!,
-        amount: activationAmount,
-        activationDate: new Date().toLocaleDateString(),
-        remainingBalance: response.data.newBalance,
-        ...(selectedPlan === 'growth' && { packageName: selectedPackage?.name })
-      });
-
-      toast.success('🎉 ACTIVATION SUCCESSFUL! 🎉');
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Activation failed");
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    toast.error(error.response?.data?.error || 'Activation failed');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   return (
     <SidebarProvider>
@@ -227,7 +236,20 @@ const MemberActivation = () => {
           <main className="flex-1">
             <div className="w-full min-h-full">
               <div className="w-full bg-white shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white">
+                {/* Mobile-only wallet balance (simple box) */}
+                <div className="md:hidden bg-white text-white p-4">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-700 bg-opacity-20 rounded-lg p-3 text-center">
+                    <p className="text-sm font-medium opacity-90">
+                      MAIN WALLET BALANCE
+                    </p>
+                    <p className="text-2xl font-bold">
+                      ${walletBalance.toFixed(3)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Desktop header (full version) */}
+                <div className="hidden md:block bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white">
                   <div className="px-8 py-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
@@ -285,7 +307,9 @@ const MemberActivation = () => {
                             <input
                               type="text"
                               value={memberId}
-                              onChange={(e) => handleMemberIdChange(e.target.value)}
+                              onChange={(e) =>
+                                handleMemberIdChange(e.target.value)
+                              }
                               placeholder="Enter member ID"
                               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                             />
@@ -356,7 +380,9 @@ const MemberActivation = () => {
                             <Wallet className="w-5 h-5 text-blue-500" />
                             <p className="font-medium text-blue-800">
                               $
-                              {(walletBalance - getActivationAmount()).toFixed(2)}
+                              {(walletBalance - getActivationAmount()).toFixed(
+                                2
+                              )}
                             </p>
                           </div>
                         </div>
@@ -374,7 +400,10 @@ const MemberActivation = () => {
                             <select
                               value={selectedPackage?.id || ""}
                               onChange={(e) => {
-                                const pkg = growthPackages.find((p) => p.id === e.target.value) || null;
+                                const pkg =
+                                  growthPackages.find(
+                                    (p) => p.id === e.target.value
+                                  ) || null;
                                 setSelectedPackage(pkg);
                               }}
                               className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none"
@@ -590,7 +619,8 @@ const MemberActivation = () => {
                           🎉 MEMBER ACTIVATION SUCCESSFUL! 🎉
                         </div>
                         <div className="text-sm text-gray-600">
-                          New member successfully activated! Keep this invoice for records.
+                          New member successfully activated! Keep this invoice
+                          for records.
                         </div>
                       </div>
                     </div>

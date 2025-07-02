@@ -57,7 +57,7 @@ const SelfActivation = () => {
     id: memberData.member_id || "PRN000000",
     name: memberData.name || "Member",
     package: memberData.package || "",
-    active_status: memberData.active_status || false
+    active_status: memberData.active_status || false,
   };
 
   // Package data for Growth Plan
@@ -90,12 +90,12 @@ const SelfActivation = () => {
       try {
         setIsLoading(true);
         const token = localStorage.getItem("token");
-        
+
         // First check activation status from server
         const activationResponse = await axios.get(
           `${API_BASE_URL}/check-activation-status`,
           {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
 
@@ -110,13 +110,12 @@ const SelfActivation = () => {
           `${API_BASE_URL}/member-wallet-balance`,
           {
             headers: { Authorization: `Bearer ${token}` },
-            params: { member_id: currentUser.id }
+            params: { member_id: currentUser.id },
           }
         );
 
         setWalletBalance(balanceResponse.data.balance);
         setActivationChecked(true);
-        
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error(error.response?.data?.error || "Failed to load data");
@@ -158,14 +157,14 @@ const SelfActivation = () => {
         `${API_BASE_URL}/self-activate`,
         {
           planType: selectedPlan,
-          packageName: selectedPlan === 'growth' ? selectedPackage?.name : null,
-          amount: getActivationAmount()
+          packageName: selectedPlan === "growth" ? selectedPackage?.name : null,
+          amount: getActivationAmount(),
         },
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
       );
 
@@ -177,13 +176,14 @@ const SelfActivation = () => {
       const updatedMember = {
         ...memberData,
         active_status: true,
-        package: selectedPlan === "growth" ? selectedPackage?.name : selectedPlan
+        package:
+          selectedPlan === "growth" ? selectedPackage?.name : selectedPlan,
       };
       localStorage.setItem("member", JSON.stringify(updatedMember));
 
       setWalletBalance(response.data.newBalance);
       setIsAlreadyActive(true);
-      
+
       // Create invoice
       const newInvoice: Invoice = {
         invoiceId: "INV" + Date.now().toString().slice(-8),
@@ -202,13 +202,14 @@ const SelfActivation = () => {
 
       setInvoice(newInvoice);
       toast.success("Account activated successfully!");
-
     } catch (error) {
       console.error("Activation error details:", {
         message: error.message,
-        response: error.response?.data
+        response: error.response?.data,
       });
-      toast.error(error.response?.data?.error || error.message || "Activation failed");
+      toast.error(
+        error.response?.data?.error || error.message || "Activation failed"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -231,7 +232,8 @@ const SelfActivation = () => {
                   ACTIVATION SUCCESSFUL! 🎉
                 </h2>
                 <p className="text-gray-600 mb-6">
-                  Your account is already activated with the {currentUser.package} package.
+                  Your account is already activated with the{" "}
+                  {currentUser.package} package.
                 </p>
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <p className="font-medium text-blue-800">
@@ -275,7 +277,55 @@ const SelfActivation = () => {
           <main className="flex-1">
             <div className="w-full min-h-full">
               <div className="w-full bg-white shadow-lg overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white">
+                {/* <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white">
+                  <div className="px-8 py-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white bg-opacity-20 p-3 rounded-full flex items-center justify-center">
+                          <UserPlus className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h1 className="text-2xl font-bold tracking-tight">
+                            SELF ACTIVATION
+                          </h1>
+                          <p className="text-blue-100 text-sm opacity-90">
+                            Activate your account using your wallet balance
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-20 shadow-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-white bg-opacity-20 p-2 rounded-full">
+                              <Wallet className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-blue-100 opacity-90">
+                                MAIN WALLET BALANCE
+                              </p>
+                              <p className="text-xl font-bold tracking-wide">
+                                ${walletBalance.toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div> */}
+                {/* Mobile-only wallet balance (simple box) */}
+                <div className="md:hidden bg-white text-white p-4">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-700 bg-opacity-20 rounded-lg p-3 text-center">
+                    <p className="text-sm font-medium opacity-90">
+                      RE-TOP WALLET BALANCE
+                    </p>
+                    <p className="text-2xl font-bold">
+                      ${walletBalance.toFixed(3)}
+                    </p>
+                  </div>
+                </div>
+                {/* Desktop header (full version) */}
+                <div className="hidden md:block bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white">
                   <div className="px-8 py-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">

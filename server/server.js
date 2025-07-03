@@ -2551,7 +2551,6 @@ app.post('/api/bank-details', authenticateToken, async (req, res) => {
 
 
 //update pass
-// Password reset endpoint
 app.post('/api/reset-password', authenticateToken, async (req, res) => {
   try {
     const memberId = req.user.memberId;
@@ -2601,6 +2600,150 @@ app.post('/api/reset-password', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Password reset error:', error);
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+
+//member profile update
+// Get profile data
+app.get('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId;
+
+    // Get member basic info
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('member_id, name, phone_number, email')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Get profile details
+    const { data: profile, error: profileError } = await supabase
+      .from('member_profiles')
+      .select('*')
+      .eq('member_id', member.member_id)
+      .single();
+
+    res.json({
+      name: member.name,
+      mobile: member.phone_number,
+      email: member.email,
+      dob: profile?.dob || '',
+      gender: profile?.gender || '',
+      location: profile?.location || '',
+      pincode: profile?.pincode || ''
+    });
+
+  } catch (error) {
+    console.error('Error fetching profile:', error);
+    res.status(500).json({ error: 'Failed to fetch profile data' });
+  }
+});
+
+// Update profile
+app.post('/api/profile', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId;
+    const { name, mobile, email, dob, gender, location, pincode } = req.body;
+
+    // Validate required fields
+    if (!name || !mobile || !email) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Name, mobile and email are required' 
+      });
+    }
+
+    // Get member_id first
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('member_id')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !member) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Member not found' 
+      });
+    }
+
+    // Check if profile exists
+    const { data: existingProfile, error: profileError } = await supabase
+      .from('member_profiles')
+      .select('member_id')
+      .eq('member_id', member.member_id)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+
+    // Update member table
+    const { error: updateMemberError } = await supabase
+      .from('members')
+      .update({
+        name,
+        phone_number: mobile,
+        email,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', memberId);
+
+    if (updateMemberError) throw updateMemberError;
+
+    // Prepare profile data
+    const profileData = {
+      member_id: member.member_id,
+      dob,
+      gender,
+      location,
+      pincode,
+      updated_at: new Date().toISOString()
+    };
+
+    // Update or insert profile data
+    let upsertError;
+    if (existingProfile) {
+      // Update existing profile
+      const { error } = await supabase
+        .from('member_profiles')
+        .update(profileData)
+        .eq('member_id', member.member_id);
+      upsertError = error;
+    } else {
+      // Insert new profile
+      const { error } = await supabase
+        .from('member_profiles')
+        .insert(profileData);
+      upsertError = error;
+    }
+
+    if (upsertError) throw upsertError;
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        name,
+        mobile,
+        email,
+        dob,
+        gender,
+        location,
+        pincode
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update profile',
+      details: error.message 
+    });
   }
 });
 

@@ -1,7 +1,10 @@
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Profile = () => {
   const [formData, setFormData] = useState({
@@ -13,6 +16,39 @@ const Profile = () => {
     location: "",
     pincode: "",
   });
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/profile`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        setFormData({
+          name: response.data.name,
+          mobile: response.data.mobile,
+          email: response.data.email,
+          dob: response.data.dob,
+          gender: response.data.gender,
+          location: response.data.location,
+          pincode: response.data.pincode
+        });
+      } catch (err) {
+        console.error("Error fetching profile:", err);
+        setError("Failed to load profile data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -22,14 +58,81 @@ const Profile = () => {
       ...prev,
       [name]: value,
     }));
+    // Clear any previous errors/success
+    if (error) setError("");
+    if (success) setSuccess("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle form submission here
-    console.log("Form submitted:", formData);
-    // Add your API call or update logic here
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+  setError("");
+  setSuccess("");
+
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/profile`,
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+
+    if (response.data?.success) {
+      setSuccess(response.data.message || "Profile updated successfully!");
+      // Optionally refetch profile data to ensure consistency
+      const profileResponse = await axios.get(`${API_BASE_URL}/api/profile`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setFormData({
+        name: profileResponse.data.name,
+        mobile: profileResponse.data.mobile,
+        email: profileResponse.data.email,
+        dob: profileResponse.data.dob,
+        gender: profileResponse.data.gender,
+        location: profileResponse.data.location,
+        pincode: profileResponse.data.pincode
+      });
+    } else {
+      setError(response.data?.error || "Update failed, please try again");
+    }
+  } catch (error: any) {
+    console.error("Error updating profile:", error);
+    
+    let errorMessage = "An error occurred while updating profile";
+    if (error.response) {
+      errorMessage = error.response.data?.error || 
+                    error.response.data?.details || 
+                    "Failed to update profile";
+    } else if (error.request) {
+      errorMessage = "Network error - please check your connection";
+    }
+    
+    setError(errorMessage);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-gray-50">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col overflow-x-hidden">
+            <DashboardHeader />
+            <main className="flex-1 p-4 md:p-6 bg-gray-50 flex items-center justify-center">
+              <div className="text-center">Loading profile data...</div>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -39,7 +142,6 @@ const Profile = () => {
           <DashboardHeader />
           <main className="flex-1 p-4 md:p-6">
             <div className="max-w-4xl mx-auto">
-              {/* <h2 className="text-2xl font-bold text-gray-800 mb-6">Profile</h2> */}
               <div className="bg-gradient-to-r from-blue-600 to-blue-500 p-4">
                 <h2 className="text-xl font-semibold text-white">
                   Profile Information
@@ -47,6 +149,17 @@ const Profile = () => {
               </div>
 
               <div className="bg-white rounded-lg shadow-md p-6">
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg border border-red-200">
+                    {error}
+                  </div>
+                )}
+                {success && (
+                  <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-lg border border-green-200">
+                    {success}
+                  </div>
+                )}
+                
                 <form onSubmit={handleSubmit}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Name */}
@@ -190,9 +303,12 @@ const Profile = () => {
                   <div className="mt-8 flex justify-center">
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                      disabled={isSubmitting}
+                      className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${
+                        isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+                      }`}
                     >
-                      Update Profile
+                      {isSubmitting ? 'Updating...' : 'Update Profile'}
                     </button>
                   </div>
                 </form>

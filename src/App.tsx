@@ -86,7 +86,7 @@ const App = () => (
           /> */}
 
           {/* Settings */}
-          {/* <Route path="/settings/profile" element={<Profile />} /> */}
+          <Route path="/settings/profile" element={<Profile />} />
           <Route path="/settings/password" element={<PasswordReset />} />
           <Route path="/settings/bank-details" element={<BankDetails />} />
 

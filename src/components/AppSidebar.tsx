@@ -209,9 +209,9 @@ const menuItems: MenuItem[] = [
       { title: "Profile", icon: UserCheck, path: "/settings/profile" },
       { title: "Password Reset", icon: Lock, path: "/settings/password" },
       {
-        title: "KYC Upload",
+        title: "Bank Details",
         icon: Upload,
-        path: "/settings/kyc",
+        path: "/settings/bank-details",
       },
     ],
   },

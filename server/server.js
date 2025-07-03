@@ -2429,6 +2429,181 @@ app.get('/api/income', authenticateToken, async (req, res) => {
   }
 });
 
+// Get bank details for logged-in user
+app.get('/api/bank-details', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId;
+
+    // Get member details including name
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('member_id, name')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Get existing bank details if any
+    const { data: bankDetails, error: bankError } = await supabase
+      .from('bank_details')
+      .select('*')
+      .eq('member_id', member.member_id)
+      .single();
+
+    res.json({
+      member_name: member.name,
+      bank_details: bankDetails || null
+    });
+
+  } catch (error) {
+    console.error('Error fetching bank details:', error);
+    res.status(500).json({ error: 'Failed to fetch bank details' });
+  }
+});
+
+// Save/update bank details
+app.post('/api/bank-details', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId;
+    const bankData = req.body;
+
+    // Validate required fields
+    const requiredFields = ['bankName', 'branchName', 'ifscCode', 'accountNumber', 'accountType', 'panNumber'];
+    const missingFields = requiredFields.filter(field => !bankData[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        missingFields 
+      });
+    }
+
+    // Get member details
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('member_id, name')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Check if bank details already exist
+    const { data: existingDetails, error: existingError } = await supabase
+      .from('bank_details')
+      .select('id')
+      .eq('member_id', member.member_id)
+      .single();
+
+    let result;
+    if (existingDetails) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from('bank_details')
+        .update({
+          bank_name: bankData.bankName,
+          branch_name: bankData.branchName,
+          ifsc_code: bankData.ifscCode,
+          account_number: bankData.accountNumber,
+          account_type: bankData.accountType,
+          pan_number: bankData.panNumber,
+          updated_at: new Date().toISOString()
+        })
+        .eq('member_id', member.member_id)
+        .select();
+      
+      result = data;
+      if (error) throw error;
+    } else {
+      // Create new record
+      const { data, error } = await supabase
+        .from('bank_details')
+        .insert([{
+          member_id: member.member_id,
+          account_holder_name: member.name,
+          bank_name: bankData.bankName,
+          branch_name: bankData.branchName,
+          ifsc_code: bankData.ifscCode,
+          account_number: bankData.accountNumber,
+          account_type: bankData.accountType,
+          pan_number: bankData.panNumber
+        }])
+        .select();
+      
+      result = data;
+      if (error) throw error;
+    }
+
+    res.json({
+      success: true,
+      message: 'Bank details saved successfully',
+      bank_details: result
+    });
+
+  } catch (error) {
+    console.error('Error saving bank details:', error);
+    res.status(500).json({ error: 'Failed to save bank details' });
+  }
+});
+
+
+//update pass
+// Password reset endpoint
+app.post('/api/reset-password', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId;
+    const { oldPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: 'Both old and new passwords are required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters' });
+    }
+
+    // Get current member details
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('password')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Verify old password matches (plain text comparison)
+    if (member.password !== oldPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Update password in database (plain text)
+    const { error: updateError } = await supabase
+      .from('members')
+      .update({ 
+        password: newPassword,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', memberId);
+
+    if (updateError) throw updateError;
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

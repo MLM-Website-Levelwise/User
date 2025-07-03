@@ -2243,6 +2243,192 @@ app.get('/check-profit-sharing-investments', authenticateToken, async (req, res)
   }
 });
 
+
+// Add this endpoint to your server.js
+app.post('/process-growth-transaction', authenticateToken, async (req, res) => {
+  try {
+    const { member_id, transaction_type, amount, activated_member_id, activated_member_name } = req.body;
+
+    // Validate input
+    if (!member_id || !transaction_type || !amount) {
+      return res.status(400).json({ error: 'Member ID, transaction type, and amount are required' });
+    }
+
+    // Check if member exists and get their sponsor
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('sponsor_code, sponsor_name, package')
+      .eq('member_id', member_id)
+      .single();
+
+    if (memberError || !member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Only process for Growth package
+    if (member.package !== 'growth') {
+      return res.status(400).json({ error: 'Commission only applicable for Growth package' });
+    }
+
+    // Start transaction
+    const { data: transactionData, error: transactionError } = await supabase
+      .from('re_top_up_transactions')
+      .insert([
+        { 
+          member_id,
+          plan_type: 'growth',
+          amount,
+          status: 'completed'
+        }
+      ])
+      .select()
+      .single();
+
+    if (transactionError) throw transactionError;
+
+    // Calculate commission (10%)
+    const commissionAmount = amount * 0.1;
+
+    // If there's a sponsor, create commission transaction
+    if (member.sponsor_code) {
+      // Record in main balance transactions
+      const { error: balanceError } = await supabase
+        .from('main_balance_transactions')
+        .insert([
+          {
+            member_id: member.sponsor_code,
+            transaction_type: 'referral_commission',
+            plan_type: 'growth',
+            amount: commissionAmount,
+            notes: `Commission from ${member_id}'s ${transaction_type}`,
+            activated_member_id: activated_member_id || member_id,
+            activated_member_name: activated_member_name || null
+          }
+        ]);
+
+      if (balanceError) throw balanceError;
+
+      // Update sponsor's balance (assuming you have a balance column in members table)
+      const { error: updateError } = await supabase
+        .from('members')
+        .update({ 
+          balance: supabase.rpc('increment', { 
+            column: 'balance', 
+            val: commissionAmount 
+          }) 
+        })
+        .eq('member_id', member.sponsor_code);
+
+      if (updateError) throw updateError;
+    }
+
+    res.json({
+      success: true,
+      message: 'Transaction processed successfully',
+      transaction: transactionData,
+      commission: member.sponsor_code ? {
+        sponsor_id: member.sponsor_code,
+        amount: commissionAmount,
+        processed: true
+      } : {
+        processed: false,
+        reason: 'No sponsor found'
+      }
+    });
+
+  } catch (error) {
+    console.error('Transaction processing error:', error);
+    res.status(500).json({ 
+      error: 'Failed to process transaction',
+      details: error.message 
+    });
+  }
+});
+
+// Get income data
+app.get('/api/income', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.memberId;
+
+    // Get member details
+    const { data: currentMember, error: memberError } = await supabase
+      .from('members')
+      .select('member_id, name')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !currentMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Get direct referrals
+    const { data: directReferrals, error: referralsError } = await supabase
+      .from('members')
+      .select('member_id, name')
+      .eq('sponsor_code', currentMember.member_id);
+
+    if (referralsError) throw referralsError;
+    const referralIds = directReferrals.map(r => r.member_id);
+
+    // Get re-top up transactions
+    const { data: topUpData, error: topUpError } = await supabase
+      .from('re_top_up_transactions')
+      .select(`
+        *,
+        member:member_id (name)
+      `)
+      .in('member_id', referralIds)
+      .eq('plan_type', 'growth')
+      .order('transaction_date', { ascending: false });
+
+    // Get activation commissions
+    const { data: balanceData, error: balanceError } = await supabase
+      .from('main_balance_transactions')
+      .select(`
+        *,
+        activated_member:activated_member_id (name)
+      `)
+      .in('activated_member_id', referralIds)
+      .ilike('transaction_type', '%activation%')
+      .eq('plan_type', 'growth')
+      .order('transaction_date', { ascending: false });
+
+    if (topUpError || balanceError) throw topUpError || balanceError;
+
+    // Format data for UI with proper date and all required fields
+    const combinedData = [
+      ...topUpData.map(t => ({
+        id: t.id,
+        transaction_date: new Date(t.transaction_date).toISOString(),
+        member_id: t.member_id,
+        name: t.member?.name || 'N/A',
+        transaction_type: 'Re-top up', // Changed from 'type' to 'transaction_type'
+        plan_type: t.plan_type || 'growth', // Changed from 'package' to 'plan_type'
+        amount: t.amount,
+        income: t.amount * 0.1,
+        activated_member_name: t.member?.name || 'N/A'
+      })),
+      
+      ...balanceData.map(t => ({
+        id: t.id,
+        transaction_date: new Date(t.transaction_date).toISOString(),
+        member_id: t.activated_member_id,
+        name: t.activated_member?.name || t.activated_member_name || 'N/A',
+        transaction_type: t.transaction_type || 'member_activation', // Changed from 'type'
+        plan_type: t.plan_type || 'growth', // Changed from 'package'
+        amount: t.amount,
+        income: t.amount * 0.1, // Commission is full amount for activations (removed *0.1)
+        activated_member_name: t.activated_member?.name || t.activated_member_name || 'N/A'
+      }))
+    ];
+
+    res.json(combinedData);
+  } catch (error) {
+    console.error('Error fetching income data:', error);
+    res.status(500).json({ error: 'Failed to fetch income data' });
+  }
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

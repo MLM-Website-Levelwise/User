@@ -1,9 +1,7 @@
-
-
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   Filter,
@@ -12,91 +10,36 @@ import {
   Users,
   TrendingUp,
 } from "lucide-react";
+import axios from "axios";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const DirectIncome = () => {
-  // Sample data for direct income
-  const [incomeData] = useState([
-    {
-      id: 1,
-      date: "2024-06-25",
-      memberId: "MLM001234",
-      name: "John Smith",
-      transactionType: "Activation",
-      package: "Tour Package",
-      packageAmount: 5000,
-      income: 500,
-    },
-    {
-      id: 2,
-      date: "2024-06-24",
-      memberId: "MLM001235",
-      name: "Sarah Johnson",
-      transactionType: "Re-top up",
-      package: "Growth",
-      packageAmount: 2000,
-      income: 200,
-    },
-    {
-      id: 3,
-      date: "2024-06-23",
-      memberId: "MLM001236",
-      name: "Mike Wilson",
-      transactionType: "Re-top up",
-      package: "Growth",
-      packageAmount: 10000,
-      income: 1000,
-    },
-    {
-      id: 4,
-      date: "2024-06-22",
-      memberId: "MLM001237",
-      name: "Emma Davis",
-      transactionType: "Re-top up",
-      package: "Growth",
-      packageAmount: 3000,
-      income: 300,
-    },
-    {
-      id: 5,
-      date: "2024-06-21",
-      memberId: "MLM001238",
-      name: "Robert Brown",
-      transactionType: "Re-top up",
-      package: "Growth",
-      packageAmount: 2500,
-      income: 250,
-    },
-    {
-      id: 6,
-      date: "2024-06-20",
-      memberId: "MLM001239",
-      name: "Lisa Anderson",
-      transactionType: "Re-top up",
-      package: "Growth",
-      packageAmount: 10000,
-      income: 1000,
-    },
-    {
-      id: 7,
-      date: "2024-06-19",
-      memberId: "MLM001240",
-      name: "David Miller",
-      transactionType: "Re-top up",
-      package: "Growth",
-      packageAmount: 4000,
-      income: 400,
-    },
-    {
-      id: 8,
-      date: "2024-06-18",
-      memberId: "MLM001241",
-      name: "Jennifer Garcia",
-      transactionType: "Re-top up",
-      package: "Growth",
-      packageAmount: 2500,
-      income: 250,
-    },
-  ]);
+  const [incomeData, setIncomeData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+  const fetchIncomeData = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/income`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      // Ensure we're working with an array
+      const data = Array.isArray(response.data) ? response.data : response.data.transactions || [];
+      setIncomeData(data);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchIncomeData();
+}, []);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -108,11 +51,13 @@ const DirectIncome = () => {
   const filteredData = useMemo(() => {
     return incomeData.filter((item) => {
       const matchesSearch =
-        item.memberId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.name.toLowerCase().includes(searchTerm.toLowerCase());
+        item.member_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.name && item.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.activated_member_id && item.activated_member_id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.activated_member_name && item.activated_member_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const matchesDateFrom = !dateFrom || item.date >= dateFrom;
-      const matchesDateTo = !dateTo || item.date <= dateTo;
+      const matchesDateFrom = !dateFrom || new Date(item.transaction_date) >= new Date(dateFrom);
+      const matchesDateTo = !dateTo || new Date(item.transaction_date) <= new Date(`${dateTo}T23:59:59`);
 
       return matchesSearch && matchesDateFrom && matchesDateTo;
     });
@@ -127,8 +72,8 @@ const DirectIncome = () => {
   );
 
   // Calculate totals
-  const totalIncome = filteredData.reduce((sum, item) => sum + item.income, 0);
-  const totalMembers = filteredData.length;
+  const totalIncome = filteredData.reduce((sum, item) => sum + (item.income || 0), 0);
+  const totalMembers = new Set(filteredData.map(item => item.activated_member_id || item.member_id)).size;
   const avgIncome = totalMembers > 0 ? totalIncome / totalMembers : 0;
 
   const clearFilters = () => {
@@ -137,6 +82,38 @@ const DirectIncome = () => {
     setDateTo("");
     setCurrentPage(1);
   };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-gray-50">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col overflow-x-hidden">
+            <DashboardHeader />
+            <main className="flex-1 p-4 md:p-6 bg-gray-50 flex items-center justify-center">
+              <div className="text-center">Loading income data...</div>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
+  if (error) {
+    return (
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-gray-50">
+          <AppSidebar />
+          <div className="flex-1 flex flex-col overflow-x-hidden">
+            <DashboardHeader />
+            <main className="flex-1 p-4 md:p-6 bg-gray-50 flex items-center justify-center">
+              <div className="text-center text-red-500">Error: {error}</div>
+            </main>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -287,40 +264,40 @@ const DirectIncome = () => {
                               {startIndex + index + 1}
                             </td>
                             <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-base text-gray-900">
-                              {new Date(item.date).toLocaleDateString()}
+                              {new Date(item.transaction_date).toLocaleDateString()}
                             </td>
                             <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-blue-600">
-                              {item.memberId}
+                              {item.member_id}
                             </td>
                             <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-base text-gray-900">
-                              {item.name}
+                              {item.name || 'N/A'}
                             </td>
                             <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap">
                               <span
                                 className={`inline-flex px-1 py-0.5 md:px-2 md:py-1 text-xs md:text-sm font-semibold rounded-full ${
-                                  item.transactionType === "Activation"
+                                  item.transaction_type === "Activation"
                                     ? "bg-green-100 text-green-800"
                                     : "bg-blue-100 text-blue-800"
                                 }`}
                               >
-                                {item.transactionType}
+                                {item.transaction_type}
                               </span>
                             </td>
                             <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap">
                               <span
                                 className={`inline-flex px-1 py-0.5 md:px-2 md:py-1 text-xs md:text-sm font-semibold rounded-full ${
-                                  item.package === "Tour Package"
+                                  item.plan_type === "Tour Package"
                                     ? "bg-purple-100 text-purple-800"
-                                    : item.package === "Growth"
+                                    : item.plan_type === "Growth"
                                     ? "bg-orange-100 text-orange-800"
                                     : "bg-gray-100 text-gray-800"
                                 }`}
                               >
-                                {item.package}
+                                {item.plan_type}
                               </span>
                             </td>
                             <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-base font-semibold text-gray-900">
-                              ${item.packageAmount.toLocaleString()}
+                              ${item.amount.toLocaleString()}
                             </td>
                             <td className="px-3 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-base font-semibold text-gray-900">
                               ${item.income.toLocaleString()}

@@ -54,6 +54,9 @@ const Profile = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+    // Skip name field changes
+    if (name === "name") return;
+    
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -64,59 +67,44 @@ const Profile = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-  setError("");
-  setSuccess("");
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError("");
+    setSuccess("");
 
-  try {
-    const response = await axios.post(
-      `${API_BASE_URL}/api/profile`,
-      formData,
-      {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/profile`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
         }
+      );
+
+      if (response.data?.success) {
+        setSuccess(response.data.message || "Profile updated successfully!");
+      } else {
+        setError(response.data?.error || "Update failed, please try again");
       }
-    );
-
-    if (response.data?.success) {
-      setSuccess(response.data.message || "Profile updated successfully!");
-      // Optionally refetch profile data to ensure consistency
-      const profileResponse = await axios.get(`${API_BASE_URL}/api/profile`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setFormData({
-        name: profileResponse.data.name,
-        mobile: profileResponse.data.mobile,
-        email: profileResponse.data.email,
-        dob: profileResponse.data.dob,
-        gender: profileResponse.data.gender,
-        location: profileResponse.data.location,
-        pincode: profileResponse.data.pincode
-      });
-    } else {
-      setError(response.data?.error || "Update failed, please try again");
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      
+      let errorMessage = "An error occurred while updating profile";
+      if (error.response) {
+        errorMessage = error.response.data?.error || 
+                      error.response.data?.details || 
+                      "Failed to update profile";
+      } else if (error.request) {
+        errorMessage = "Network error - please check your connection";
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (error: any) {
-    console.error("Error updating profile:", error);
-    
-    let errorMessage = "An error occurred while updating profile";
-    if (error.response) {
-      errorMessage = error.response.data?.error || 
-                    error.response.data?.details || 
-                    "Failed to update profile";
-    } else if (error.request) {
-      errorMessage = "Network error - please check your connection";
-    }
-    
-    setError(errorMessage);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   if (loading) {
     return (
@@ -162,7 +150,7 @@ const Profile = () => {
                 
                 <form onSubmit={handleSubmit}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Name */}
+                    {/* Name (read-only) */}
                     <div className="space-y-2">
                       <label
                         htmlFor="name"
@@ -175,10 +163,12 @@ const Profile = () => {
                         id="name"
                         name="name"
                         value={formData.name}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Name cannot be changed
+                      </p>
                     </div>
 
                     {/* Mobile */}

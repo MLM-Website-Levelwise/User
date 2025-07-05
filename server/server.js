@@ -385,7 +385,7 @@ app.get('/members', authenticateToken, async (req, res) => {
 app.get('/members/check-sponsor', authenticateToken, async (req, res) => {
   try {
     const { member_id } = req.query;
-    const currentUserMemberId = req.user.member_id; // Assuming your auth middleware adds this
+    const currentUserMemberId = req.user.member_id;
 
     if (!member_id) {
       return res.status(400).json({ error: 'Member ID is required' });
@@ -405,20 +405,47 @@ app.get('/members/check-sponsor', authenticateToken, async (req, res) => {
       return res.json({ name: member.name });
     }
 
-    // If not the current user, check if it's in their downline
-    const { data: downlineMember, error: downlineError } = await supabase
+    // Check if the member exists
+    const { data: targetMember, error: targetError } = await supabase
       .from('members')
-      .select('name')
+      .select('name, sponsor_code')
       .eq('member_id', member_id)
-      .eq('sponsor_code', currentUserMemberId)
       .single();
 
-    if (downlineError) throw downlineError;
-    if (!downlineMember) {
-      return res.status(403).json({ error: 'You can only view your own information or your direct referrals' });
+    if (targetError) throw targetError;
+    if (!targetMember) {
+      return res.status(404).json({ error: 'Member not found' });
     }
 
-    res.json({ name: downlineMember.name });
+    // Check if the member is in current user's downline (any level)
+    let isInDownline = false;
+    let currentSponsor = targetMember.sponsor_code;
+    
+    // Traverse up the sponsorship tree to see if we reach current user
+    while (currentSponsor) {
+      if (currentSponsor === currentUserMemberId) {
+        isInDownline = true;
+        break;
+      }
+      
+      // Get the next sponsor up the chain
+      const { data: sponsor, error: sponsorError } = await supabase
+        .from('members')
+        .select('sponsor_code')
+        .eq('member_id', currentSponsor)
+        .single();
+        
+      if (sponsorError) throw sponsorError;
+      if (!sponsor) break; // Reached top of hierarchy
+      
+      currentSponsor = sponsor.sponsor_code;
+    }
+
+    if (!isInDownline) {
+      return res.status(403).json({ error: 'You can only view your own information or members in your downline' });
+    }
+
+    res.json({ name: targetMember.name });
   } catch (error) {
     console.error('Check sponsor error:', error);
     res.status(500).json({ error: 'Failed to fetch sponsor information' });

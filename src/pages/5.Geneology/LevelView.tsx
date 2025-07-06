@@ -468,7 +468,7 @@ const LevelTeam = () => {
                   Total Business: ${levelIncome.toFixed(2)}
                 </span>
                 <span className="text-xs md:text-sm text-green-600 font-medium">
-                  Total Bonus: ${levelBonus.toFixed(2)}
+                  Total Bonus: ${levelBonus.toFixed(3)}
                 </span>
               </div>
             )}

@@ -99,36 +99,61 @@ const LevelTeam = () => {
   const [exportFormat, setExportFormat] = useState("All");
 
   const handleFilterChange = (field, value) => {
-    setFilters((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  setFilters((prev) => ({
+    ...prev,
+    [field]: value,
+  }));
 
-    // Calculate level income and bonus when level is selected
-    if (field === "levelNo" && value !== "All") {
-      calculateLevelIncomeAndBonus(value);
-    } else {
+  // Recalculate totals if level is selected
+  if (filters.levelNo !== "All") {
+    calculateLevelIncomeAndBonus(filters.levelNo);
+  } else {
       setLevelIncome(0);
       setLevelBonus(0);
     }
   };
 
   const calculateLevelIncomeAndBonus = (level) => {
-    const filteredMembers = teamData.teamMembers.filter(
-      (member) => member.level === parseInt(level)
-    );
+  // First filter by level
+  const levelMembers = teamData.teamMembers.filter(
+    (member) => member.level === parseInt(level)
+  );
 
-    const total = filteredMembers.reduce((sum, member) => {
-      return sum + (member.total_business || 0);
-    }, 0);
+  // Then apply all other filters (date range, status etc.)
+  const filteredMembers = levelMembers.filter(member => {
+    // Date filter
+    if (filters.dateFrom) {
+      const memberDate = new Date(member.date_of_joining);
+      const fromDate = new Date(filters.dateFrom);
+      if (memberDate < fromDate) return false;
+    }
+    
+    if (filters.dateTo) {
+      const memberDate = new Date(member.date_of_joining);
+      const toDate = new Date(filters.dateTo);
+      if (memberDate > toDate) return false;
+    }
+    
+    // Status filter
+    if (exportFormat !== "All" && 
+        member.active_status !== (exportFormat === "Active")) {
+      return false;
+    }
+    
+    return true;
+  });
 
-    const totalBonus = filteredMembers.reduce((sum, member) => {
-      return sum + (calculateProfitSharingBonus(member.total_business) || 0);
-    }, 0);
+  const total = filteredMembers.reduce((sum, member) => {
+    return sum + (member.total_business || 0);
+  }, 0);
 
-    setLevelIncome(total);
-    setLevelBonus(totalBonus);
-  };
+  const totalBonus = filteredMembers.reduce((sum, member) => {
+    return sum + calculateProfitSharingBonus(member.total_business);
+  }, 0);
+
+  setLevelIncome(total);
+  setLevelBonus(totalBonus);
+};
 
   // Function to calculate profit sharing bonus
   const calculateProfitSharingBonus = (totalBusiness) => {

@@ -153,14 +153,19 @@ const menuItems: MenuItem[] = [
         path: "/income/profitsharing-income",
       },
       {
-        title: "Growth Income",
-        icon: UserCheck,
-        path: "/income/growth-income",
-      },
-      {
         title: "Direct Income",
         icon: UserCheck,
         path: "/income/direct-income",
+      },
+      {
+        title: "Level Income",
+        icon: UserCheck,
+        path: "/income/level-income",
+      },
+      {
+        title: "Growth Income",
+        icon: UserCheck,
+        path: "/income/growth-income",
       },
     ],
   },

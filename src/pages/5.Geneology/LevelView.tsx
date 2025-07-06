@@ -24,6 +24,7 @@ const LevelTeam = () => {
     loading: false,
   });
   const [levelIncome, setLevelIncome] = useState(0);
+  const [levelBonus, setLevelBonus] = useState(0); // New state for bonus total
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -103,15 +104,16 @@ const LevelTeam = () => {
       [field]: value,
     }));
 
-    // Calculate level income when level is selected
+    // Calculate level income and bonus when level is selected
     if (field === "levelNo" && value !== "All") {
-      calculateLevelIncome(value);
+      calculateLevelIncomeAndBonus(value);
     } else {
       setLevelIncome(0);
+      setLevelBonus(0);
     }
   };
 
-  const calculateLevelIncome = (level) => {
+  const calculateLevelIncomeAndBonus = (level) => {
     const filteredMembers = teamData.teamMembers.filter(
       (member) => member.level === parseInt(level)
     );
@@ -120,7 +122,18 @@ const LevelTeam = () => {
       return sum + (member.total_business || 0);
     }, 0);
 
+    const totalBonus = filteredMembers.reduce((sum, member) => {
+      return sum + (calculateProfitSharingBonus(member.total_business) || 0);
+    }, 0);
+
     setLevelIncome(total);
+    setLevelBonus(totalBonus);
+  };
+
+  // Function to calculate profit sharing bonus
+  const calculateProfitSharingBonus = (totalBusiness) => {
+    if (!totalBusiness) return 0;
+    return (totalBusiness * 0.06) / 20; // 6% divided by 20
   };
 
   const handleSubmit = () => {
@@ -169,6 +182,7 @@ const LevelTeam = () => {
         ? `$${member.total_retopup.toFixed(2)}`
         : "$0.00",
       total_business: member.total_business,
+      profit_sharing_bonus: calculateProfitSharingBonus(member.total_business) // Add bonus calculation
     })),
   ];
 
@@ -453,6 +467,9 @@ const LevelTeam = () => {
                 <span className="text-xs md:text-sm text-blue-600 font-medium">
                   Total Business: ${levelIncome.toFixed(2)}
                 </span>
+                <span className="text-xs md:text-sm text-green-600 font-medium">
+                  Total Bonus: ${levelBonus.toFixed(2)}
+                </span>
               </div>
             )}
           </div>
@@ -548,6 +565,9 @@ const LevelTeam = () => {
                       Total Business
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
+                      Profit Sharing Bonus
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">
                       Status
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-medium">
@@ -601,6 +621,11 @@ const LevelTeam = () => {
                         <td className="px-4 py-3 text-sm text-gray-900">
                           {member.total_business
                             ? `$${member.total_business.toFixed(2)}`
+                            : "$0.00"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900">
+                          {member.profit_sharing_bonus
+                            ? `$${member.profit_sharing_bonus.toFixed(3)}`
                             : "$0.00"}
                         </td>
                         <td className="px-4 py-3 text-sm">

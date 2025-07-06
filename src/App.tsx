@@ -24,6 +24,7 @@ import SelfPurchaseReport from "./pages/4.Purchase/SelfPurchaseReport";
 
 import ProfitSharingIncome from "./pages/6. Income/ProfitSharingIncome";
 import DirectIncome from "./pages/6. Income/DirectIncome";
+import LevelIncome from "./pages/6. Income/LevelIncome";
 
 import TreeView from "./pages/5.Geneology/TreeView";
 import LevelView from "./pages/5.Geneology/LevelView";
@@ -77,7 +78,7 @@ const App = () => (
             element={<ProfitSharingIncome />}
           />
           <Route path="/income/direct-income" element={<DirectIncome />} />
-
+          {/* <Route path="/income/level-income" element={<LevelIncome />} /> */}
           {/* Withdrawal */}
           {/* <Route path="/withdrawal/send-request" element={<SendRequest />} />
           <Route

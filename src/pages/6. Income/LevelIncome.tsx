@@ -1,7 +1,7 @@
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Calendar,
   Filter,
@@ -10,118 +10,101 @@ import {
   DollarSign,
   User,
 } from "lucide-react";
+import axios from "axios";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Level_Income = () => {
-  // Get current date in YYYY-MM-DD format
   const currentDate = new Date().toISOString().split("T")[0];
-
-  // Sample data for demonstration
-  const [incomeData] = useState([
-    {
-      id: 1,
-      date: currentDate,
-      level: 1,
-      totalMembers: 2,
-      totalProfitBonus: "N/A",
-      percentage: "20%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-    {
-      id: 2,
-      date: currentDate,
-      level: 2,
-      totalMembers: 0,
-      totalProfitBonus: "N/A",
-      percentage: "10%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-    {
-      id: 3,
-      date: currentDate,
-      level: 3,
-      totalMembers: 0,
-      totalProfitBonus: "N/A",
-      percentage: "10%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-    {
-      id: 4,
-      date: currentDate,
-      level: 4,
-      totalMembers: 0,
-      totalProfitBonus: "N/A",
-      percentage: "5%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-    {
-      id: 5,
-      date: currentDate,
-      level: 5,
-      totalMembers: 0,
-      totalProfitBonus: "N/A",
-      percentage: "5%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-    {
-      id: 6,
-      date: currentDate,
-      level: 6,
-      totalMembers: 0,
-      totalProfitBonus: "N/A",
-      percentage: "3%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-    {
-      id: 7,
-      date: currentDate,
-      level: 7,
-      totalMembers: 0,
-      totalProfitBonus: "N/A",
-      percentage: "3%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-    {
-      id: 8,
-      date: currentDate,
-      level: 8,
-      totalMembers: 0,
-      totalProfitBonus: "N/A",
-      percentage: "3%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-    {
-      id: 9,
-      date: currentDate,
-      level: 9,
-      totalMembers: 0,
-      totalProfitBonus: "N/A",
-      percentage: "3%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-    {
-      id: 10,
-      date: currentDate,
-      level: 10,
-      totalMembers: 0,
-      totalProfitBonus: "N/A",
-      percentage: "3%",
-      commission: "N/A",
-      criteria: "Not eligible",
-    },
-  ]);
-
-  // Filter states
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [teamData, setTeamData] = useState([]);
+  const [directMembersCount, setDirectMembersCount] = useState(0);
   const [selectedLevel, setSelectedLevel] = useState("all");
   const [selectedDate, setSelectedDate] = useState(currentDate);
+
+  // Fetch team data
+  useEffect(() => {
+    const fetchTeamData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const response = await axios.get(`${API_BASE_URL}/level-wise-team`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setTeamData(response.data.teamMembers);
+        
+        // Count direct members (level 1)
+        const directMembers = response.data.teamMembers.filter(
+          member => member.level === 1
+        ).length;
+        setDirectMembersCount(directMembers);
+        
+      } catch (err) {
+        console.error("Failed to fetch team data:", err);
+        setError("Failed to load team data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeamData();
+  }, []);
+
+  // Calculate level-wise income data
+  const incomeData = useMemo(() => {
+    const levels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const percentageMap = {
+      1: "20%",
+      2: "10%",
+      3: "10%",
+      4: "5%",
+      5: "5%",
+      6: "3%",
+      7: "3%",
+      8: "3%",
+      9: "3%",
+      10: "3%",
+    };
+
+    return levels.map(level => {
+      const levelMembers = teamData.filter(member => member.level === level);
+      const totalMembers = levelMembers.length;
+      
+      // Calculate total profit bonus for this level
+      const totalProfitBonus = levelMembers.reduce((sum, member) => {
+        return sum + (member.total_business || 0);
+      }, 0);
+      
+      // Determine if eligible for commission
+      let eligible = false;
+      if (directMembersCount >= 3) {
+        eligible = level <= 3;
+      }
+      
+      // Calculate commission if eligible
+      let commission = "N/A";
+      if (eligible && totalProfitBonus > 0) {
+        const percentage = parseInt(percentageMap[level]) / 100;
+        commission = `$${(totalProfitBonus * percentage).toFixed(2)}`;
+      }
+      
+      return {
+        id: level,
+        date: currentDate,
+        level,
+        totalMembers,
+        totalProfitBonus: totalProfitBonus > 0 ? `$${totalProfitBonus.toFixed(2)}` : "N/A",
+        percentage: percentageMap[level],
+        commission,
+        criteria: eligible ? "Eligible" : "Not eligible",
+      };
+    });
+  }, [teamData, directMembersCount, currentDate]);
 
   // Filtered data based on selected filters
   const filteredData = useMemo(() => {
@@ -137,21 +120,52 @@ const Level_Income = () => {
 
   // Calculate summary values
   const summaryValues = useMemo(() => {
-    const todayData = incomeData.filter((item) => item.date === currentDate);
-
+    const activeLevels = incomeData.filter(item => item.totalMembers > 0).length;
+    
+    const totalIncome = incomeData.reduce((sum, item) => {
+      if (item.commission !== "N/A") {
+        return sum + parseFloat(item.commission.replace('$', ''));
+      }
+      return sum;
+    }, 0);
+    
+    const todaysIncome = incomeData
+      .filter(item => item.date === currentDate)
+      .reduce((sum, item) => {
+        if (item.commission !== "N/A") {
+          return sum + parseFloat(item.commission.replace('$', ''));
+        }
+        return sum;
+      }, 0);
+    
     return {
-      totalIncome: 12500, // Static value for demo
-      todaysIncome: 2500, // Static value for demo
-      activeLevels: todayData.length,
-      directMembers:
-        todayData.find((item) => item.level === 1)?.totalMembers || 0,
+      totalIncome,
+      todaysIncome,
+      activeLevels,
+      directMembers: directMembersCount,
     };
-  }, [incomeData, currentDate]);
+  }, [incomeData, currentDate, directMembersCount]);
 
   const clearFilters = () => {
     setSelectedLevel("all");
     setSelectedDate(currentDate);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div>Loading income data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -345,7 +359,11 @@ const Level_Income = () => {
                           {item.commission}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex px-2 py-1 text-sm font-semibold rounded-full bg-gray-100 text-gray-800">
+                          <span className={`inline-flex px-2 py-1 text-sm font-semibold rounded-full ${
+                            item.criteria === "Eligible" 
+                              ? "bg-green-100 text-green-800" 
+                              : "bg-gray-100 text-gray-800"
+                          }`}>
                             {item.criteria}
                           </span>
                         </td>

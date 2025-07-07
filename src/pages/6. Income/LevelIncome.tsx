@@ -208,7 +208,7 @@ const Level_Income = () => {
                   Total Income
                 </p>
                 <p className="text-2xl md:text-3xl font-bold">
-                  ${summaryValues.totalIncome.toFixed(2)}
+                  ${summaryValues.totalIncome.toFixed(3)}
                 </p>
               </div>
               <DollarSign size={40} className="text-blue-100 md:size-10" />
@@ -222,7 +222,7 @@ const Level_Income = () => {
                   {selectedDate === today ? "Today's" : "Selected Date"} Income
                 </p>
                 <p className="text-2xl md:text-3xl font-bold">
-                  ${summaryValues.todaysIncome.toFixed(2)}
+                  ${summaryValues.todaysIncome.toFixed(3)}
                 </p>
               </div>
               <DollarSign size={40} className="text-green-100 md:size-10" />
@@ -326,13 +326,13 @@ const Level_Income = () => {
                           {item.totalMembers}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
-                          ${item.totalProfitBonus.toFixed(3)}
+                          ${item.totalProfitBonus.toFixed(5)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
                           {item.percentage}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
-                          ${item.commission.toFixed(3)}
+                          ${item.commission.toFixed(5)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-sm font-semibold rounded-full ${

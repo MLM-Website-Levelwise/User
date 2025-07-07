@@ -326,13 +326,13 @@ const Level_Income = () => {
                           {item.totalMembers}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
-                          ${item.totalProfitBonus.toFixed(2)}
+                          ${item.totalProfitBonus.toFixed(3)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
                           {item.percentage}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
-                          ${item.commission.toFixed(2)}
+                          ${item.commission.toFixed(3)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-sm font-semibold rounded-full ${

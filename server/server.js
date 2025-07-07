@@ -887,7 +887,7 @@ app.get('/level-income', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Future dates are not allowed' });
     }
 
-    // Get all team members (up to 10 levels) - cached structure
+    // Get all team members (up to 10 levels)
     const { data: allTeamMembers } = await supabase
       .from('members')
       .select('id, member_id, name, sponsor_code, date_of_joining, active_status');
@@ -905,7 +905,6 @@ app.get('/level-income', authenticateToken, async (req, res) => {
           level: currentLevel
         });
         
-        // Add downline members
         members = members.concat(buildTeam(member.member_id, currentLevel + 1, maxLevel));
       }
 
@@ -913,109 +912,85 @@ app.get('/level-income', authenticateToken, async (req, res) => {
     };
 
     const teamMembers = buildTeam(currentMember.member_id);
-
-    // Count direct members
     const directMembers = teamMembers.filter(m => m.level === 1).length;
 
-    // Calculate level-wise data
+    // Level configuration
     const levels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const percentageMap = {
       1: 20, 2: 10, 3: 10, 4: 5, 5: 5, 
       6: 3, 7: 3, 8: 3, 9: 3, 10: 3
     };
 
-    // For previous dates, get exactly what was calculated on that day
-    if (selectedDate < today) {
-      // Get business data ONLY for the selected date (not cumulative)
-      const { data: businessData } = await supabase
-        .from('main_balance_transactions')
-        .select('activated_member_id, amount')
-        .eq('plan_type', 'profit-sharing')
-        .gte('transaction_date', `${selectedDate}T00:00:00`)
-        .lte('transaction_date', `${selectedDate}T23:59:59`);
-
-      const { data: retopupBusiness } = await supabase
-        .from('re_top_up_transactions')
-        .select('member_id, amount')
-        .eq('plan_type', 'profit-sharing')
-        .gte('transaction_date', `${selectedDate}T00:00:00`)
-        .lte('transaction_date', `${selectedDate}T23:59:59`);
-
-      // Create business map for just this date
-      const businessMap = new Map();
-      [...(businessData || []), ...(retopupBusiness || [])].forEach(txn => {
-        const memberId = txn.activated_member_id || txn.member_id;
-        businessMap.set(memberId, (businessMap.get(memberId) || 0) + txn.amount);
-      });
-
-      const incomeData = levels.map(level => {
-        const levelMembers = teamMembers.filter(m => m.level === level);
-        const totalMembers = levelMembers.length;
-        
-        const totalProfitBonus = levelMembers.reduce((sum, member) => {
-          return sum + (businessMap.get(member.member_id) || 0);
-        }, 0);
-        
-        const eligible = directMembers >= level;
-        const commission = eligible ? totalProfitBonus * (percentageMap[level] / 100) : 0;
-        
-        return {
-          level,
-          date: selectedDate,
-          totalMembers,
-          totalProfitBonus,
-          percentage: `${percentageMap[level]}%`,
-          commission,
-          criteria: eligible ? 'Eligible' : 'Not eligible'
-        };
-      });
-
-      const activeLevels = incomeData.filter(i => i.totalMembers > 0).length;
-      const totalIncome = incomeData.reduce((sum, i) => sum + i.commission, 0);
-
-      return res.json({
-        date: selectedDate,
-        directMembers,
-        incomeData,
-        summary: {
-          totalIncome,
-          todaysIncome: totalIncome,
-          activeLevels,
-          directMembers
-        }
-      });
-    }
-
-    // For current date - get ALL transactions up to now (cumulative)
-    const { data: businessData } = await supabase
+    // Get business data for the selected date (whether current or past)
+    const { data: dateBusinessData } = await supabase
       .from('main_balance_transactions')
       .select('activated_member_id, amount')
       .eq('plan_type', 'profit-sharing')
+      .gte('transaction_date', `${selectedDate}T00:00:00`)
       .lte('transaction_date', `${selectedDate}T23:59:59`);
 
-    const { data: retopupBusiness } = await supabase
+    const { data: dateRetopupBusiness } = await supabase
       .from('re_top_up_transactions')
       .select('member_id, amount')
       .eq('plan_type', 'profit-sharing')
+      .gte('transaction_date', `${selectedDate}T00:00:00`)
       .lte('transaction_date', `${selectedDate}T23:59:59`);
 
-    // Create cumulative business map
-    const businessMap = new Map();
-    [...(businessData || []), ...(retopupBusiness || [])].forEach(txn => {
+    // Create business map for selected date
+    const dateBusinessMap = new Map();
+    [...(dateBusinessData || []), ...(dateRetopupBusiness || [])].forEach(txn => {
       const memberId = txn.activated_member_id || txn.member_id;
-      businessMap.set(memberId, (businessMap.get(memberId) || 0) + txn.amount);
+      dateBusinessMap.set(memberId, (dateBusinessMap.get(memberId) || 0) + txn.amount);
     });
 
+    // For current date only - get additional data for cumulative calculations
+    let allBusinessMap = new Map();
+    if (selectedDate === today) {
+      const { data: allBusinessData } = await supabase
+        .from('main_balance_transactions')
+        .select('activated_member_id, amount')
+        .eq('plan_type', 'profit-sharing')
+        .lte('transaction_date', `${today}T23:59:59`);
+
+      const { data: allRetopupBusiness } = await supabase
+        .from('re_top_up_transactions')
+        .select('member_id, amount')
+        .eq('plan_type', 'profit-sharing')
+        .lte('transaction_date', `${today}T23:59:59`);
+
+      [...(allBusinessData || []), ...(allRetopupBusiness || [])].forEach(txn => {
+        const memberId = txn.activated_member_id || txn.member_id;
+        allBusinessMap.set(memberId, (allBusinessMap.get(memberId) || 0) + txn.amount);
+      });
+    }
+
+    // Calculate income data
     const incomeData = levels.map(level => {
       const levelMembers = teamMembers.filter(m => m.level === level);
       const totalMembers = levelMembers.length;
       
+      // For current date: Total Profit Bonus is 0.3% of ALL business
+      // For past dates: Total Profit Bonus is 0.3% of that day's business
       const totalProfitBonus = levelMembers.reduce((sum, member) => {
-        return sum + (businessMap.get(member.member_id) || 0);
-      }, 0);
+        const business = selectedDate === today 
+          ? (allBusinessMap.get(member.member_id) || 0)
+          : (dateBusinessMap.get(member.member_id) || 0);
+        return sum + business;
+      }, 0) * 0.003;
       
       const eligible = directMembers >= level;
+      
+      // Commission = Total Profit Bonus * percentage%
       const commission = eligible ? totalProfitBonus * (percentageMap[level] / 100) : 0;
+      
+      // For current date only - calculate today's commission separately
+      const todaysCommission = selectedDate === today
+        ? eligible 
+          ? levelMembers.reduce((sum, member) => {
+              return sum + (dateBusinessMap.get(member.member_id) || 0);
+            }, 0) * 0.003 * (percentageMap[level] / 100)
+          : 0
+        : 0;
       
       return {
         level,
@@ -1024,6 +999,7 @@ app.get('/level-income', authenticateToken, async (req, res) => {
         totalProfitBonus,
         percentage: `${percentageMap[level]}%`,
         commission,
+        todaysCommission: selectedDate === today ? todaysCommission : undefined,
         criteria: eligible ? 'Eligible' : 'Not eligible'
       };
     });
@@ -1031,6 +1007,9 @@ app.get('/level-income', authenticateToken, async (req, res) => {
     // Calculate summaries
     const activeLevels = incomeData.filter(i => i.totalMembers > 0).length;
     const totalIncome = incomeData.reduce((sum, i) => sum + i.commission, 0);
+    const todaysIncome = selectedDate === today
+      ? incomeData.reduce((sum, i) => sum + (i.todaysCommission || 0), 0)
+      : totalIncome;
 
     res.json({
       date: selectedDate,
@@ -1038,7 +1017,7 @@ app.get('/level-income', authenticateToken, async (req, res) => {
       incomeData,
       summary: {
         totalIncome,
-        todaysIncome: totalIncome,
+        todaysIncome,
         activeLevels,
         directMembers
       }

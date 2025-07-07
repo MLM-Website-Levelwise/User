@@ -1014,10 +1014,13 @@ app.get('/level-income', authenticateToken, async (req, res) => {
       };
     });
 
+    
+
     // Calculate summaries
     const activeLevels = incomeData.filter(i => i.totalMembers > 0).length;
+    const todaysIncome = incomeData.reduce((sum, i) => sum + i.commission, 0);
     const totalIncome = incomeData.reduce((sum, i) => sum + i.commission, 0);
-    const todaysIncome = incomeData.reduce((sum, i) => sum + i.todaysCommission, 0);
+    
 
     res.json({
       date: selectedDate,

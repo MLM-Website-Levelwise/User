@@ -861,6 +861,135 @@ async function countDownlineWithActivity(memberId) {
   return { totalDownline: totalCount, activeDownline: activeCount };
 }
 
+// Get level income data with date filtering (without snapshots table)
+app.get('/level-income', authenticateToken, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const memberId = req.user.memberId;
+
+    // Get current member details
+    const { data: currentMember, error: memberError } = await supabase
+      .from('members')
+      .select('id, member_id, name')
+      .eq('id', memberId)
+      .single();
+
+    if (memberError || !currentMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Use current date if not specified
+    const today = new Date().toISOString().split('T')[0];
+    const selectedDate = date || today;
+    
+    // Block future dates
+    if (selectedDate > today) {
+      return res.status(400).json({ error: 'Future dates are not allowed' });
+    }
+
+    // Get all team members (up to 10 levels) - cached structure
+    const { data: allTeamMembers } = await supabase
+      .from('members')
+      .select('id, member_id, name, sponsor_code, date_of_joining, active_status');
+
+    // Build team structure
+    const buildTeam = (sponsorId, currentLevel = 1, maxLevel = 10) => {
+      if (currentLevel > maxLevel) return [];
+      
+      const directMembers = allTeamMembers.filter(m => m.sponsor_code === sponsorId);
+      let members = [];
+
+      for (const member of directMembers) {
+        members.push({
+          ...member,
+          level: currentLevel
+        });
+        
+        // Add downline members
+        members = members.concat(buildTeam(member.member_id, currentLevel + 1, maxLevel));
+      }
+
+      return members;
+    };
+
+    const teamMembers = buildTeam(currentMember.member_id);
+
+    // Count direct members
+    const directMembers = teamMembers.filter(m => m.level === 1).length;
+
+    // Calculate level-wise data
+    const levels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const percentageMap = {
+      1: 20, 2: 10, 3: 10, 4: 5, 5: 5, 
+      6: 3, 7: 3, 8: 3, 9: 3, 10: 3
+    };
+
+    // Get business data for selected date
+    const { data: businessData } = await supabase
+      .from('main_balance_transactions')
+      .select('activated_member_id, amount')
+      .eq('plan_type', 'profit-sharing')
+      .gte('transaction_date', `${selectedDate}T00:00:00`)
+      .lte('transaction_date', `${selectedDate}T23:59:59`);
+
+    const { data: retopupBusiness } = await supabase
+      .from('re_top_up_transactions')
+      .select('member_id, amount')
+      .eq('plan_type', 'profit-sharing')
+      .gte('transaction_date', `${selectedDate}T00:00:00`)
+      .lte('transaction_date', `${selectedDate}T23:59:59`);
+
+    // Create business maps
+    const businessMap = new Map();
+    [...(businessData || []), ...(retopupBusiness || [])].forEach(txn => {
+      const memberId = txn.activated_member_id || txn.member_id;
+      businessMap.set(memberId, (businessMap.get(memberId) || 0) + txn.amount);
+    });
+
+    const incomeData = levels.map(level => {
+      const levelMembers = teamMembers.filter(m => m.level === level);
+      const totalMembers = levelMembers.length;
+      
+      const totalProfitBonus = levelMembers.reduce((sum, member) => {
+        return sum + (businessMap.get(member.member_id) || 0);
+      }, 0);
+      
+      const eligible = directMembers >= level;
+      const commission = eligible ? totalProfitBonus * (percentageMap[level] / 100) : 0;
+      
+      return {
+        level,
+        date: selectedDate,
+        totalMembers,
+        totalProfitBonus,
+        percentage: `${percentageMap[level]}%`,
+        commission,
+        criteria: eligible ? 'Eligible' : 'Not eligible'
+      };
+    });
+
+    // Calculate summaries
+    const activeLevels = incomeData.filter(i => i.totalMembers > 0).length;
+    const totalIncome = incomeData.reduce((sum, i) => sum + i.commission, 0);
+
+    res.json({
+      date: selectedDate,
+      directMembers,
+      incomeData,
+      summary: {
+        totalIncome,
+        todaysIncome: totalIncome, // Same as total for selected date
+        activeLevels,
+        directMembers
+      }
+    });
+
+  } catch (error) {
+    console.error('Level income error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get level-wise team data
 app.get('/level-wise-team', authenticateToken, async (req, res) => {
   try {

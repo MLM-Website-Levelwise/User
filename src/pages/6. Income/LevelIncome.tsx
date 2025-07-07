@@ -9,102 +9,85 @@ import {
   TrendingUp,
   DollarSign,
   User,
+  RefreshCw,
 } from "lucide-react";
 import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Level_Income = () => {
-  const currentDate = new Date().toISOString().split("T")[0];
+  const today = new Date().toISOString().split('T')[0];
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [teamData, setTeamData] = useState([]);
-  const [directMembersCount, setDirectMembersCount] = useState(0);
+  const [incomeData, setIncomeData] = useState([]);
+  const [summaryValues, setSummaryValues] = useState({
+    totalIncome: 0,
+    todaysIncome: 0,
+    activeLevels: 0,
+    directMembers: 0,
+  });
   const [selectedLevel, setSelectedLevel] = useState("all");
-  const [selectedDate, setSelectedDate] = useState(currentDate);
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [maxAllowedDate, setMaxAllowedDate] = useState(today);
 
-  // Fetch team data
+  // Fetch income data
+  const fetchIncomeData = async (date) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      const response = await axios.get(`${API_BASE_URL}/level-income`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        params: {
+          date: date || today
+        }
+      });
+
+      setIncomeData(response.data.incomeData);
+      setSummaryValues({
+        totalIncome: response.data.summary.totalIncome,
+        todaysIncome: response.data.summary.todaysIncome,
+        activeLevels: response.data.summary.activeLevels,
+        directMembers: response.data.summary.directMembers,
+      });
+      setError("");
+    } catch (err) {
+      console.error("Failed to fetch income data:", err);
+      setError(err.response?.data?.error || "Failed to load income data");
+      setIncomeData([]);
+      setSummaryValues({
+        totalIncome: 0,
+        todaysIncome: 0,
+        activeLevels: 0,
+        directMembers: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data on component mount and when date changes
   useEffect(() => {
-    const fetchTeamData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) return;
+    fetchIncomeData(selectedDate);
+  }, [selectedDate]);
 
-        const response = await axios.get(`${API_BASE_URL}/level-wise-team`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        setTeamData(response.data.teamMembers);
-        
-        // Count direct members (level 1)
-        const directMembers = response.data.teamMembers.filter(
-          member => member.level === 1
-        ).length;
-        setDirectMembersCount(directMembers);
-        
-      } catch (err) {
-        console.error("Failed to fetch team data:", err);
-        setError("Failed to load team data");
-      } finally {
-        setLoading(false);
+  // Update max allowed date daily
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newToday = new Date().toISOString().split('T')[0];
+      if (newToday !== maxAllowedDate) {
+        setMaxAllowedDate(newToday);
+        if (selectedDate > newToday) {
+          setSelectedDate(newToday);
+        }
       }
-    };
+    }, 60000); // Check every minute
 
-    fetchTeamData();
-  }, []);
-
-  // Calculate level-wise income data
-  const incomeData = useMemo(() => {
-    const levels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-    const percentageMap = {
-      1: "20%",
-      2: "10%",
-      3: "10%",
-      4: "5%",
-      5: "5%",
-      6: "3%",
-      7: "3%",
-      8: "3%",
-      9: "3%",
-      10: "3%",
-    };
-
-    return levels.map(level => {
-      const levelMembers = teamData.filter(member => member.level === level);
-      const totalMembers = levelMembers.length;
-      
-      // Calculate total profit bonus for this level
-      const totalProfitBonus = levelMembers.reduce((sum, member) => {
-        return sum + (member.total_business || 0);
-      }, 0);
-      
-      // Determine if eligible for commission
-      let eligible = false;
-      if (directMembersCount >= 3) {
-        eligible = level <= 3;
-      }
-      
-      // Calculate commission if eligible
-      let commission = "N/A";
-      if (eligible && totalProfitBonus > 0) {
-        const percentage = parseInt(percentageMap[level]) / 100;
-        commission = `$${(totalProfitBonus * percentage).toFixed(2)}`;
-      }
-      
-      return {
-        id: level,
-        date: currentDate,
-        level,
-        totalMembers,
-        totalProfitBonus: totalProfitBonus > 0 ? `$${totalProfitBonus.toFixed(2)}` : "N/A",
-        percentage: percentageMap[level],
-        commission,
-        criteria: eligible ? "Eligible" : "Not eligible",
-      };
-    });
-  }, [teamData, directMembersCount, currentDate]);
+    return () => clearInterval(interval);
+  }, [maxAllowedDate, selectedDate]);
 
   // Filtered data based on selected filters
   const filteredData = useMemo(() => {
@@ -112,43 +95,27 @@ const Level_Income = () => {
       .filter((item) => {
         const levelMatch =
           selectedLevel === "all" || item.level === parseInt(selectedLevel);
-        const dateMatch = !selectedDate || item.date === selectedDate;
-        return levelMatch && dateMatch;
+        return levelMatch;
       })
       .sort((a, b) => a.level - b.level);
-  }, [incomeData, selectedLevel, selectedDate]);
-
-  // Calculate summary values
-  const summaryValues = useMemo(() => {
-    const activeLevels = incomeData.filter(item => item.totalMembers > 0).length;
-    
-    const totalIncome = incomeData.reduce((sum, item) => {
-      if (item.commission !== "N/A") {
-        return sum + parseFloat(item.commission.replace('$', ''));
-      }
-      return sum;
-    }, 0);
-    
-    const todaysIncome = incomeData
-      .filter(item => item.date === currentDate)
-      .reduce((sum, item) => {
-        if (item.commission !== "N/A") {
-          return sum + parseFloat(item.commission.replace('$', ''));
-        }
-        return sum;
-      }, 0);
-    
-    return {
-      totalIncome,
-      todaysIncome,
-      activeLevels,
-      directMembers: directMembersCount,
-    };
-  }, [incomeData, currentDate, directMembersCount]);
+  }, [incomeData, selectedLevel]);
 
   const clearFilters = () => {
     setSelectedLevel("all");
-    setSelectedDate(currentDate);
+    setSelectedDate(today);
+  };
+
+  const handleDateChange = (e) => {
+    const newDate = e.target.value;
+    if (newDate > maxAllowedDate) {
+      setError("Future dates are not allowed");
+      return;
+    }
+    setSelectedDate(newDate);
+  };
+
+  const refreshData = () => {
+    fetchIncomeData(selectedDate);
   };
 
   if (loading) {
@@ -159,25 +126,33 @@ const Level_Income = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
-        <div className="text-red-500">{error}</div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-2 md:px-4">
         {/* Filter Section */}
         <div className="bg-white rounded-xl shadow-lg p-6 md:p-6 mb-6 w-full overflow-hidden">
-          <div className="flex items-center mb-4">
-            <Filter className="mr-2 text-blue-600" size={20} />
-            <h2 className="text-xl md:text-xl font-semibold text-gray-800 truncate">
-              Filter Options
-            </h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Filter className="mr-2 text-blue-600" size={20} />
+              <h2 className="text-xl md:text-xl font-semibold text-gray-800 truncate">
+                Filter Options
+              </h2>
+            </div>
+            <button
+              onClick={refreshData}
+              className="flex items-center text-blue-600 hover:text-blue-800"
+              title="Refresh Data"
+            >
+              <RefreshCw size={18} className="mr-1" />
+              <span className="text-sm">Refresh</span>
+            </button>
           </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+              {error}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-4">
             <div>
@@ -188,7 +163,8 @@ const Level_Income = () => {
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                max={maxAllowedDate}
+                onChange={handleDateChange}
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -243,7 +219,7 @@ const Level_Income = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-100 text-sm font-medium">
-                  Today's Income
+                  {selectedDate === today ? "Today's" : "Selected Date"} Income
                 </p>
                 <p className="text-2xl md:text-3xl font-bold">
                   ${summaryValues.todaysIncome.toFixed(2)}
@@ -328,7 +304,7 @@ const Level_Income = () => {
                   ) : (
                     filteredData.map((item, index) => (
                       <tr
-                        key={item.id}
+                        key={item.level}
                         className="hover:bg-gray-50 transition-colors duration-150"
                       >
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
@@ -350,13 +326,13 @@ const Level_Income = () => {
                           {item.totalMembers}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
-                          {item.totalProfitBonus}
+                          ${item.totalProfitBonus.toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
                           {item.percentage}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900">
-                          {item.commission}
+                          ${item.commission.toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-sm font-semibold rounded-full ${
@@ -381,6 +357,9 @@ const Level_Income = () => {
                 <span className="text-sm text-gray-700">
                   Showing {filteredData.length} record
                   {filteredData.length !== 1 ? "s" : ""}
+                </span>
+                <span className="text-sm text-gray-700">
+                  Date: {new Date(selectedDate).toLocaleDateString()}
                 </span>
               </div>
             </div>

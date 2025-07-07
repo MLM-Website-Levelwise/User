@@ -78,7 +78,7 @@ const App = () => (
             element={<ProfitSharingIncome />}
           />
           <Route path="/income/direct-income" element={<DirectIncome />} />
-          {/* <Route path="/income/level-income" element={<LevelIncome />} /> */}
+          <Route path="/income/level-income" element={<LevelIncome />} />
           {/* Withdrawal */}
           {/* <Route path="/withdrawal/send-request" element={<SendRequest />} />
           <Route

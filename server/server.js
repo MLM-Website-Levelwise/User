@@ -1019,7 +1019,71 @@ app.get('/level-income', authenticateToken, async (req, res) => {
     // Calculate summaries
     const activeLevels = incomeData.filter(i => i.totalMembers > 0).length;
     const todaysIncome = incomeData.reduce((sum, i) => sum + i.commission, 0);
-    const totalIncome = incomeData.reduce((sum, i) => sum + i.commission, 0);
+    // Calculate total income by simulating all previous days' commissions
+let totalIncome = 0;
+
+// 1. First calculate for all previous dates
+if (date) { // Only if a specific date is selected
+  const previousDaysIncome = await calculatePreviousDaysIncome(
+    currentMember.member_id, 
+    selectedDate,
+    teamMembers,
+    levels,
+    percentageMap
+  );
+  totalIncome += previousDaysIncome;
+}
+
+// 2. Then add today's commissions
+const todaysCommissions = incomeData.reduce((sum, i) => sum + i.commission, 0);
+totalIncome += todaysCommissions;
+
+// Helper function to calculate previous days' income
+async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, levels, percentageMap) {
+  // Get all activation dates before endDate
+  const { data: activations } = await supabase
+    .from('main_balance_transactions')
+    .select('transaction_date')
+    .ilike('transaction_type', '%activation%')
+    .lt('transaction_date', `${endDate}T00:00:00`)
+    .order('transaction_date', { ascending: true });
+
+  const uniqueDates = [...new Set(
+    activations?.map(a => a.transaction_date.split('T')[0]) || []
+  )];
+
+  let cumulativeIncome = 0;
+
+  for (const date of uniqueDates) {
+    // Get business for this date
+    const { data: dailyBusiness } = await supabase
+      .from('main_balance_transactions')
+      .select('activated_member_id, amount')
+      .eq('plan_type', 'profit-sharing')
+      .gte('transaction_date', `${date}T00:00:00`)
+      .lte('transaction_date', `${date}T23:59:59`);
+
+    // Calculate commissions for this date
+    const directMembers = teamMembers.filter(m => m.level === 1).length;
+    const dailyCommissions = levels.reduce((sum, level) => {
+      const levelMembers = teamMembers.filter(m => m.level === level);
+      const eligible = directMembers >= level;
+      
+      if (!eligible) return sum;
+
+      const dailyProfit = levelMembers.reduce((sum, member) => {
+        const memberBusiness = dailyBusiness?.find(b => b.activated_member_id === member.member_id);
+        return sum + (memberBusiness?.amount || 0);
+      }, 0) * 0.003;
+
+      return sum + (dailyProfit * (percentageMap[level] / 100));
+    }, 0);
+
+    cumulativeIncome += dailyCommissions;
+  }
+
+  return cumulativeIncome;
+}
     
 
     res.json({

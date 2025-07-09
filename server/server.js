@@ -381,6 +381,142 @@ app.get('/members', authenticateToken, async (req, res) => {
 });
 
 
+//Tree for member
+// New endpoint for team structure
+// Updated team-structure endpoint with strict binary placement
+app.get('/team-structure', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.member_id;
+    const { levels = 3, root_id } = req.query;
+    
+    const rootId = root_id || userId;
+
+    // Get the root member
+    const { data: rootMember, error: rootError } = await supabase
+      .from('members')
+      .select('*')
+      .eq('member_id', rootId)
+      .single();
+
+    if (rootError || !rootMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Get all members under this root (up to specified levels)
+    const { data: allMembers, error: membersError } = await supabase
+      .from('members')
+      .select('*')
+      .neq('member_id', rootId);
+
+    if (membersError) throw membersError;
+
+    // Create a map for quick lookup
+    const memberMap = new Map();
+    memberMap.set(rootId, { ...rootMember, left: null, right: null, level: 0 });
+
+    // First pass: initialize all members
+    allMembers.forEach(member => {
+      memberMap.set(member.member_id, {
+        ...member,
+        left: null,
+        right: null,
+        level: -1 // To be determined
+      });
+    });
+
+    // Second pass: build binary tree structure
+    const queue = [];
+    queue.push(rootId);
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      const currentNode = memberMap.get(currentId);
+
+      // Get direct referrals sorted by joining date
+      const directReferrals = allMembers
+        .filter(m => m.sponsor_code === currentId)
+        .sort((a, b) => new Date(a.date_of_joining) - new Date(b.date_of_joining));
+
+      // Place first two direct referrals (if exist)
+      if (directReferrals.length > 0) {
+        const leftChild = directReferrals[0];
+        currentNode.left = leftChild.member_id;
+        memberMap.get(leftChild.member_id).level = currentNode.level + 1;
+        memberMap.get(leftChild.member_id).position = 'Left';
+        queue.push(leftChild.member_id);
+      }
+
+      if (directReferrals.length > 1) {
+        const rightChild = directReferrals[1];
+        currentNode.right = rightChild.member_id;
+        memberMap.get(rightChild.member_id).level = currentNode.level + 1;
+        memberMap.get(rightChild.member_id).position = 'Right';
+        queue.push(rightChild.member_id);
+      }
+
+      // Handle spillover for remaining referrals (3rd+)
+      for (let i = 2; i < directReferrals.length; i++) {
+        const referral = directReferrals[i];
+        let placed = false;
+        
+        // Find next available spot in the tree (BFS)
+        const tempQueue = [...queue];
+        while (tempQueue.length > 0 && !placed) {
+          const potentialParentId = tempQueue.shift();
+          const potentialParent = memberMap.get(potentialParentId);
+
+          if (!potentialParent.left) {
+            potentialParent.left = referral.member_id;
+            memberMap.get(referral.member_id).level = potentialParent.level + 1;
+            memberMap.get(referral.member_id).position = 'Left';
+            queue.push(referral.member_id);
+            placed = true;
+          } else if (!potentialParent.right) {
+            potentialParent.right = referral.member_id;
+            memberMap.get(referral.member_id).level = potentialParent.level + 1;
+            memberMap.get(referral.member_id).position = 'Right';
+            queue.push(referral.member_id);
+            placed = true;
+          }
+        }
+
+        if (!placed) {
+          console.warn(`Could not place member ${referral.member_id}`);
+        }
+      }
+    }
+
+    // Recursive function to build the response tree
+    const buildTree = (memberId, currentLevel = 0) => {
+      if (!memberId || currentLevel >= levels) return null;
+
+      const member = memberMap.get(memberId);
+      if (!member) return null;
+
+      const leftChild = buildTree(member.left, currentLevel + 1);
+      const rightChild = buildTree(member.right, currentLevel + 1);
+
+      const children = [];
+      if (leftChild) children.push(leftChild);
+      if (rightChild) children.push(rightChild);
+
+      return {
+        ...member,
+        children: children.length > 0 ? children : undefined,
+        position: member.position
+      };
+    };
+
+    const teamStructure = buildTree(rootId);
+
+    res.json(teamStructure);
+  } catch (error) {
+    console.error('Get team structure error:', error);
+    res.status(500).json({ error: 'Failed to fetch team structure' });
+  }
+});
+
+
 // Add this new route to your backend
 app.get('/members/check-sponsor', authenticateToken, async (req, res) => {
   try {

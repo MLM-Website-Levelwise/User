@@ -51,11 +51,12 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
     null
   );
+   const [levelIncomeTotal, setLevelIncomeTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
+   useEffect(() => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
         if (!token) {
@@ -63,22 +64,28 @@ const Dashboard = () => {
           return;
         }
 
-        const response = await axios.get(`${API_BASE_URL}/member-dashboard`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        // Fetch dashboard data
+        const dashboardRes = await axios.get(`${API_BASE_URL}/member-dashboard`, {
+          headers: { Authorization: `Bearer ${token}` }
         });
+        setDashboardData(dashboardRes.data);
 
-        console.log("API Response:", response.data); // Add this line
-        setDashboardData(response.data);
+        // Fetch level income total separately
+        const levelIncomeRes = await axios.get(`${API_BASE_URL}/level-income`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: new Date().toISOString().split('T')[0] }
+        });
+        
+        setLevelIncomeTotal(levelIncomeRes.data.summary.totalIncome);
+        
       } catch (err) {
-        console.error("Failed to fetch dashboard data:", err);
+        console.error("Failed to fetch data:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
+    fetchData();
   }, [navigate]);
 
   if (loading) {
@@ -228,6 +235,21 @@ const Dashboard = () => {
                     <div className="text-2xl font-bold">${"0.00"}</div>
                   </CardContent>
                 </Card>
+                <Card className="border-0 shadow-md bg-gradient-to-br from-cyan-600 to-cyan-800 text-white">
+      <CardHeader className="flex flex-row items-center justify-between p-4">
+        <CardTitle className="text-xl font-medium">
+          Growing Wallet
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 pt-0">
+        <div className="text-2xl font-bold">
+          ${levelIncomeTotal.toFixed(3)}
+        </div>
+        <p className="text-sm opacity-80 mt-1">
+          Total earnings from level income
+        </p>
+      </CardContent>
+    </Card>
               </div>
             </div>
           </main>

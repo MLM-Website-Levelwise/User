@@ -318,7 +318,7 @@ const DirectMember: React.FC = () => {
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">DOJ</th>
                 <th className="sticky left-12 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Member ID</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Name</th>
-                {/* <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Position</th> */}
+                <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Position</th>
                 
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Date</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Amount</th>
@@ -350,6 +350,9 @@ const DirectMember: React.FC = () => {
                     {/* Regular columns */}
                     <td className="px-3 py-3 text-xs sm:text-sm text-gray-900 font-medium">
                       {member.member_name}
+                    </td>
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {member.position}
                     </td>
                     {/* <td className="px-3 py-3 text-center">
                       <span className={`px-2 py-1 rounded-full text-xs ${

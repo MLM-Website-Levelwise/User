@@ -1548,8 +1548,6 @@ app.get('/my-member', authenticateToken, async (req, res) => {
     if (rootMemberId) {
       // Get ONLY the downline for a member (excluding the member themselves)
       members = await getDownlineMembers(rootMemberId);
-      
-      // No need to add root member anymore since we only want downline
     } else {
       // Admin gets all members with top-up data
       const { data: allMembers, error } = await supabase
@@ -1592,6 +1590,16 @@ app.get('/my-member', authenticateToken, async (req, res) => {
         };
       });
     }
+
+    // Sort members: active first, then by date_of_joining ascending
+    members.sort((a, b) => {
+      // First sort by active status (active comes first)
+      if (a.active_status && !b.active_status) return -1;
+      if (!a.active_status && b.active_status) return 1;
+      
+      // Then sort by date_of_joining
+      return new Date(a.date_of_joining) - new Date(b.date_of_joining);
+    });
 
     res.json({
       members,

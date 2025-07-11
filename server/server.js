@@ -1176,30 +1176,63 @@ totalIncome += todaysCommissions;
 
 // Helper function to calculate previous days' income
 async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, levels, percentageMap) {
-  // Get the first activation date
-  const { data: firstActivation } = await supabase
-    .from('main_balance_transactions')
-    .select('transaction_date')
-    .ilike('transaction_type', '%activation%')
-    .order('transaction_date', { ascending: true })
-    .limit(1);
+  const { data: memberData } = await supabase
+    .from('members')
+    .select('created_at')
+    .eq('member_id', memberId)
+    .single();
 
-  if (!firstActivation || firstActivation.length === 0) {
-    return 0; // No activations found
+  if (!memberData) return 0;
+
+  const startDate = new Date(memberData.created_at);
+  const cutoffDate = new Date(endDate);
+  let currentDate = new Date(startDate);
+  
+  let cumulativeIncome = 0;
+  const processedDates = new Set();
+  const weekendHold = [];
+  let lastValidCommission = 0; // Track the last valid commission amount
+
+  while (currentDate <= cutoffDate) {
+    const dateStr = currentDate.toISOString().split('T')[0];
+    const dayOfWeek = currentDate.getDay();
+
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      // Process any held weekend transactions first
+      while (weekendHold.length > 0) {
+        const weekendDate = weekendHold.shift();
+        if (!processedDates.has(weekendDate)) {
+          const weekendCommission = await calculateDailyCommission(weekendDate, lastValidCommission);
+          cumulativeIncome += weekendCommission;
+          if (weekendCommission > 0) lastValidCommission = weekendCommission;
+        }
+      }
+      
+      // Process current weekday
+      const dailyCommission = await calculateDailyCommission(dateStr, lastValidCommission);
+      cumulativeIncome += dailyCommission;
+      if (dailyCommission > 0) lastValidCommission = dailyCommission;
+    } 
+    else {
+      weekendHold.push(dateStr);
+    }
+
+    currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  const startDate = new Date(firstActivation[0].transaction_date.split('T')[0]);
-  const endDateObj = new Date(endDate);
-  
-  let currentDate = new Date(startDate);
-  let cumulativeIncome = 0;
-  const dailyIncrement = 0.135; // Fixed daily amount to add
+  // Process remaining held weekends
+  while (weekendHold.length > 0) {
+    const weekendDate = weekendHold.shift();
+    if (!processedDates.has(weekendDate)) {
+      const weekendCommission = await calculateDailyCommission(weekendDate, lastValidCommission);
+      cumulativeIncome += weekendCommission;
+    }
+  }
 
-  // Loop through each day from first activation to end date
-  while (currentDate <= endDateObj) {
-    const dateStr = currentDate.toISOString().split('T')[0];
-    
-    // Check if there's actual business for this date
+  async function calculateDailyCommission(dateStr, fallbackCommission) {
+    if (processedDates.has(dateStr)) return 0;
+    processedDates.add(dateStr);
+
     const { data: dailyBusiness } = await supabase
       .from('main_balance_transactions')
       .select('activated_member_id, amount')
@@ -1208,37 +1241,30 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
       .lte('transaction_date', `${dateStr}T23:59:59`);
 
     const directMembers = teamMembers.filter(m => m.level === 1).length;
-    let dailyCommissions = 0;
+    let dailyCommissions = levels.reduce((sum, level) => {
+      if (directMembers < level) return sum;
+      
+      const levelMembers = teamMembers.filter(m => m.level === level);
+      const dailyProfit = levelMembers.reduce((total, member) => {
+        const memberBusiness = dailyBusiness?.find(b => 
+          b.activated_member_id === member.member_id
+        );
+        return total + (memberBusiness?.amount || 0);
+      }, 0) * 0.003;
 
-    // Only calculate actual commissions if there's business for this day
-    if (dailyBusiness && dailyBusiness.length > 0) {
-      dailyCommissions = levels.reduce((sum, level) => {
-        const levelMembers = teamMembers.filter(m => m.level === level);
-        const eligible = directMembers >= level;
-        
-        if (!eligible) return sum;
+      return sum + (dailyProfit * (percentageMap[level] / 100));
+    }, 0);
 
-        const dailyProfit = levelMembers.reduce((sum, member) => {
-          const memberBusiness = dailyBusiness.find(b => b.activated_member_id === member.member_id);
-          return sum + (memberBusiness?.amount || 0);
-        }, 0) * 0.003;
-
-        return sum + (dailyProfit * (percentageMap[level] / 100));
-      }, 0);
-    } else {
-      // If no business, use the fixed increment
-      dailyCommissions = dailyIncrement;
+    // Use fallback if no transactions but team structure exists
+    if (dailyCommissions === 0 && teamMembers.length > 0) {
+      dailyCommissions = fallbackCommission;
     }
 
-    cumulativeIncome += dailyCommissions;
-    
-    // Move to next day
-    currentDate.setDate(currentDate.getDate() + 1);
+    return dailyCommissions;
   }
 
   return cumulativeIncome;
 }
-
     res.json({
       date: selectedDate,
       directMembers, // Only activated direct members count

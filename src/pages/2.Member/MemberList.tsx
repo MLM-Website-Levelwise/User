@@ -344,6 +344,7 @@ const ViewMember = () => {
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Name</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Sponsor Code</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Sponsor Name</th>
+                <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Position</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Date</th>
                 <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Amount</th>
                 <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Package</th>
@@ -380,6 +381,9 @@ const ViewMember = () => {
                     </td>
                     <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
                       {member.sponsor_name}
+                    </td>
+                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
+                      {member.position}
                     </td>
                     
                     <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">

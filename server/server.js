@@ -433,26 +433,20 @@ app.get('/team-structure', authenticateToken, async (req, res) => {
       const currentNode = memberMap.get(currentId);
 
       // Get direct referrals sorted by joining date
-      const directReferrals = allMembers
-        .filter(m => m.sponsor_code === currentId)
-        .sort((a, b) => new Date(a.date_of_joining) - new Date(b.date_of_joining));
+     const directReferrals = allMembers
+  .filter(m => m.sponsor_code === currentId);
 
-      // Place first two direct referrals (if exist)
-      if (directReferrals.length > 0) {
-        const leftChild = directReferrals[0];
-        currentNode.left = leftChild.member_id;
-        memberMap.get(leftChild.member_id).level = currentNode.level + 1;
-        memberMap.get(leftChild.member_id).position = 'Left';
-        queue.push(leftChild.member_id);
-      }
-
-      if (directReferrals.length > 1) {
-        const rightChild = directReferrals[1];
-        currentNode.right = rightChild.member_id;
-        memberMap.get(rightChild.member_id).level = currentNode.level + 1;
-        memberMap.get(rightChild.member_id).position = 'Right';
-        queue.push(rightChild.member_id);
-      }
+directReferrals.forEach(referral => {
+  if (referral.position === 'Left' && !currentNode.left) {
+    currentNode.left = referral.member_id;
+    memberMap.get(referral.member_id).level = currentNode.level + 1;
+    queue.push(referral.member_id);
+  } else if (referral.position === 'Right' && !currentNode.right) {
+    currentNode.right = referral.member_id;
+    memberMap.get(referral.member_id).level = currentNode.level + 1;
+    queue.push(referral.member_id);
+  }
+});
 
       // Handle spillover for remaining referrals (3rd+)
       for (let i = 2; i < directReferrals.length; i++) {

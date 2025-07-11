@@ -238,7 +238,7 @@ const Dashboard = () => {
                 <Card className="border-0 shadow-md bg-gradient-to-br from-cyan-600 to-cyan-800 text-white">
       <CardHeader className="flex flex-row items-center justify-between p-4">
         <CardTitle className="text-xl font-medium">
-          Growing Wallet
+          Working Wallet
         </CardTitle>
       </CardHeader>
       <CardContent className="p-4 pt-0">

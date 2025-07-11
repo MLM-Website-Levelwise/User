@@ -433,51 +433,59 @@ app.get('/team-structure', authenticateToken, async (req, res) => {
       const currentNode = memberMap.get(currentId);
 
       // Get direct referrals sorted by joining date
-     const directReferrals = allMembers
-  .filter(m => m.sponsor_code === currentId);
+    // Get direct referrals sorted by joining date (oldest first)
+const directReferrals = allMembers
+  .filter(m => m.sponsor_code === currentId)
+  .sort((a, b) => new Date(a.date_of_joining) - new Date(b.date_of_joining));
+
+// Place first left and first right referrals
+let leftPlaced = false;
+let rightPlaced = false;
 
 directReferrals.forEach(referral => {
-  if (referral.position === 'Left' && !currentNode.left) {
+  if (referral.position === 'Left' && !leftPlaced) {
     currentNode.left = referral.member_id;
     memberMap.get(referral.member_id).level = currentNode.level + 1;
     queue.push(referral.member_id);
-  } else if (referral.position === 'Right' && !currentNode.right) {
+    leftPlaced = true;
+  } else if (referral.position === 'Right' && !rightPlaced) {
     currentNode.right = referral.member_id;
     memberMap.get(referral.member_id).level = currentNode.level + 1;
     queue.push(referral.member_id);
+    rightPlaced = true;
   }
 });
 
-      // Handle spillover for remaining referrals (3rd+)
-      for (let i = 2; i < directReferrals.length; i++) {
-        const referral = directReferrals[i];
-        let placed = false;
-        
-        // Find next available spot in the tree (BFS)
-        const tempQueue = [...queue];
-        while (tempQueue.length > 0 && !placed) {
-          const potentialParentId = tempQueue.shift();
-          const potentialParent = memberMap.get(potentialParentId);
+// Handle remaining referrals (including extra left/right referrals)
+for (const referral of directReferrals) {
+  if (memberMap.get(referral.member_id).level !== -1) continue; // Skip already placed
+  
+  let placed = false;
+  const tempQueue = [...queue];
+  
+  while (tempQueue.length > 0 && !placed) {
+    const potentialParentId = tempQueue.shift();
+    const potentialParent = memberMap.get(potentialParentId);
 
-          if (!potentialParent.left) {
-            potentialParent.left = referral.member_id;
-            memberMap.get(referral.member_id).level = potentialParent.level + 1;
-            memberMap.get(referral.member_id).position = 'Left';
-            queue.push(referral.member_id);
-            placed = true;
-          } else if (!potentialParent.right) {
-            potentialParent.right = referral.member_id;
-            memberMap.get(referral.member_id).level = potentialParent.level + 1;
-            memberMap.get(referral.member_id).position = 'Right';
-            queue.push(referral.member_id);
-            placed = true;
-          }
-        }
+    if (!potentialParent.left) {
+      potentialParent.left = referral.member_id;
+      memberMap.get(referral.member_id).level = potentialParent.level + 1;
+      memberMap.get(referral.member_id).position = 'Left';
+      queue.push(referral.member_id);
+      placed = true;
+    } else if (!potentialParent.right) {
+      potentialParent.right = referral.member_id;
+      memberMap.get(referral.member_id).level = potentialParent.level + 1;
+      memberMap.get(referral.member_id).position = 'Right';
+      queue.push(referral.member_id);
+      placed = true;
+    }
+  }
 
-        if (!placed) {
-          console.warn(`Could not place member ${referral.member_id}`);
-        }
-      }
+  if (!placed) {
+    console.warn(`Could not place member ${referral.member_id}`);
+  }
+}
     }
 
     // Recursive function to build the response tree

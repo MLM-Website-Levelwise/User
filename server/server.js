@@ -1591,13 +1591,8 @@ app.get('/my-member', authenticateToken, async (req, res) => {
       });
     }
 
-    // Sort members: active first, then by date_of_joining ascending
+    // Sort all members strictly by date_of_joining in ascending order
     members.sort((a, b) => {
-      // First sort by active status (active comes first)
-      if (a.active_status && !b.active_status) return -1;
-      if (!a.active_status && b.active_status) return 1;
-      
-      // Then sort by date_of_joining
       return new Date(a.date_of_joining) - new Date(b.date_of_joining);
     });
 

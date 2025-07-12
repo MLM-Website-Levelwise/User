@@ -391,7 +391,7 @@ app.get('/team-structure', authenticateToken, async (req, res) => {
     
     const rootId = root_id || userId;
 
-    // Get the root member
+    // 1. First get the root member
     const { data: rootMember, error: rootError } = await supabase
       .from('members')
       .select('*')
@@ -399,109 +399,133 @@ app.get('/team-structure', authenticateToken, async (req, res) => {
       .single();
 
     if (rootError || !rootMember) {
-      return res.status(404).json({ error: 'Member not found' });
+      return res.status(404).json({ error: 'Root member not found' });
     }
 
-    // Get all members under this root (up to specified levels)
+    // 2. Get ALL members in the system (we'll filter later)
     const { data: allMembers, error: membersError } = await supabase
       .from('members')
-      .select('*')
-      .neq('member_id', rootId);
+      .select('*');
 
     if (membersError) throw membersError;
 
-    // Create a map for quick lookup
+    // 3. Create a map for quick lookup and initialize members
     const memberMap = new Map();
-    memberMap.set(rootId, { ...rootMember, left: null, right: null, level: 0 });
-
-    // First pass: initialize all members
-    allMembers.forEach(member => {
-      memberMap.set(member.member_id, {
-        ...member,
-        left: null,
-        right: null,
-        level: -1 // To be determined
-      });
+    memberMap.set(rootId, { 
+      ...rootMember, 
+      left: null, 
+      right: null, 
+      level: 0,
+      isRoot: true 
     });
 
-    // Second pass: build binary tree structure
-    const queue = [];
-    queue.push(rootId);
+    allMembers.forEach(member => {
+      if (member.member_id !== rootId) {
+        memberMap.set(member.member_id, {
+          ...member,
+          left: null,
+          right: null,
+          level: -1, // To be determined
+          isRoot: false
+        });
+      }
+    });
 
-    while (queue.length > 0) {
-      const currentId = queue.shift();
-      const currentNode = memberMap.get(currentId);
+    // 4. Build the complete network structure
+    const buildNetwork = () => {
+      // First pass - set direct referrals
+      allMembers.forEach(member => {
+        if (member.sponsor_code && memberMap.has(member.sponsor_code)) {
+          const sponsor = memberMap.get(member.sponsor_code);
+          
+          if (member.position === 'Left') {
+            if (!sponsor.left) {
+              sponsor.left = member.member_id;
+              member.level = sponsor.level + 1;
+            } else {
+              // Find the last left in chain
+              let lastLeft = sponsor.left;
+              while (memberMap.get(lastLeft)?.left) {
+                lastLeft = memberMap.get(lastLeft).left;
+              }
+              memberMap.get(lastLeft).left = member.member_id;
+              member.level = memberMap.get(lastLeft).level + 1;
+            }
+          } 
+          else if (member.position === 'Right') {
+            if (!sponsor.right) {
+              sponsor.right = member.member_id;
+              member.level = sponsor.level + 1;
+            } else {
+              // Find the last right in chain
+              let lastRight = sponsor.right;
+              while (memberMap.get(lastRight)?.right) {
+                lastRight = memberMap.get(lastRight).right;
+              }
+              memberMap.get(lastRight).right = member.member_id;
+              member.level = memberMap.get(lastRight).level + 1;
+            }
+          }
+        }
+      });
+    };
 
-      // Get direct referrals sorted by joining date
-    // Get direct referrals sorted by joining date (oldest first)
-const directReferrals = allMembers
-  .filter(m => m.sponsor_code === currentId)
-  .sort((a, b) => new Date(a.date_of_joining) - new Date(b.date_of_joining));
+    buildNetwork();
 
-// Place first left and first right referrals
-let leftPlaced = false;
-let rightPlaced = false;
+    // 5. Function to get all downline members for a specific member
+    const getDownlineMembers = (memberId, maxLevel = levels) => {
+      const downline = [];
+      const queue = [{ id: memberId, level: memberMap.get(memberId)?.level || 0 }];
+      
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (current.level > maxLevel) continue;
+        
+        const member = memberMap.get(current.id);
+        if (!member) continue;
+        
+        downline.push(member);
+        
+        if (member.left) {
+          queue.push({ 
+            id: member.left, 
+            level: current.level + 1 
+          });
+        }
+        if (member.right) {
+          queue.push({ 
+            id: member.right, 
+            level: current.level + 1 
+          });
+        }
+      }
+      
+      return downline;
+    };
 
-directReferrals.forEach(referral => {
-  if (referral.position === 'Left' && !leftPlaced) {
-    currentNode.left = referral.member_id;
-    memberMap.get(referral.member_id).level = currentNode.level + 1;
-    queue.push(referral.member_id);
-    leftPlaced = true;
-  } else if (referral.position === 'Right' && !rightPlaced) {
-    currentNode.right = referral.member_id;
-    memberMap.get(referral.member_id).level = currentNode.level + 1;
-    queue.push(referral.member_id);
-    rightPlaced = true;
-  }
-});
-
-// Handle remaining referrals (including extra left/right referrals)
-for (const referral of directReferrals) {
-  if (memberMap.get(referral.member_id).level !== -1) continue; // Skip already placed
-  
-  let placed = false;
-  const tempQueue = [...queue];
-  
-  while (tempQueue.length > 0 && !placed) {
-    const potentialParentId = tempQueue.shift();
-    const potentialParent = memberMap.get(potentialParentId);
-
-    if (!potentialParent.left) {
-      potentialParent.left = referral.member_id;
-      memberMap.get(referral.member_id).level = potentialParent.level + 1;
-      memberMap.get(referral.member_id).position = 'Left';
-      queue.push(referral.member_id);
-      placed = true;
-    } else if (!potentialParent.right) {
-      potentialParent.right = referral.member_id;
-      memberMap.get(referral.member_id).level = potentialParent.level + 1;
-      memberMap.get(referral.member_id).position = 'Right';
-      queue.push(referral.member_id);
-      placed = true;
-    }
-  }
-
-  if (!placed) {
-    console.warn(`Could not place member ${referral.member_id}`);
-  }
-}
-    }
-
-    // Recursive function to build the response tree
-    const buildTree = (memberId, currentLevel = 0) => {
-      if (!memberId || currentLevel >= levels) return null;
-
+    // 6. Build the response tree structure
+    const buildResponseTree = (memberId, currentLevel = 0) => {
+      if (currentLevel >= levels) return null;
+      
       const member = memberMap.get(memberId);
       if (!member) return null;
-
-      const leftChild = buildTree(member.left, currentLevel + 1);
-      const rightChild = buildTree(member.right, currentLevel + 1);
-
+      
+      const leftChild = buildResponseTree(member.left, currentLevel + 1);
+      const rightChild = buildResponseTree(member.right, currentLevel + 1);
+      
       const children = [];
       if (leftChild) children.push(leftChild);
       if (rightChild) children.push(rightChild);
-
+      
+      // Include additional downline members who are direct referrals of root
+      if (member.sponsor_code === rootId && !member.isRoot) {
+        return {
+          ...member,
+          children: children.length > 0 ? children : undefined,
+          position: member.position
+        };
+      }
+      
       return {
         ...member,
         children: children.length > 0 ? children : undefined,
@@ -509,12 +533,25 @@ for (const referral of directReferrals) {
       };
     };
 
-    const teamStructure = buildTree(rootId);
+    // 7. Get the complete team structure
+    const teamStructure = buildResponseTree(rootId);
+
+    // 8. Verify Rinku Dey's downline exists
+    if (root_id) {
+      const downlineMembers = getDownlineMembers(root_id);
+      if (downlineMembers.length === 0) {
+        console.log(`No downline members found for member ${root_id}`);
+      }
+    }
 
     res.json(teamStructure);
   } catch (error) {
     console.error('Get team structure error:', error);
-    res.status(500).json({ error: 'Failed to fetch team structure' });
+    res.status(500).json({ 
+      error: 'Failed to fetch team structure',
+      details: error.message,
+      stack: error.stack 
+    });
   }
 });
 

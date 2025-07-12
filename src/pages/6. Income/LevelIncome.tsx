@@ -48,7 +48,7 @@ const Level_Income = () => {
 
       setIncomeData(response.data.incomeData);
       setSummaryValues({
-        totalIncome: response.data.summary.totalIncome,
+        totalIncome: Number(response.data.summary?.totalIncome) || 0,
         todaysIncome: response.data.summary.todaysIncome,
         activeLevels: response.data.summary.activeLevels,
         directMembers: response.data.summary.directMembers,
@@ -208,7 +208,7 @@ const Level_Income = () => {
                   Total Income
                 </p>
                 <p className="text-2xl md:text-3xl font-bold">
-                  ${summaryValues.totalIncome.toFixed(3)}
+                  ${(Number(summaryValues.totalIncome) || 0).toFixed(3)}
                 </p>
               </div>
               <DollarSign size={40} className="text-blue-100 md:size-10" />

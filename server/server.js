@@ -1318,46 +1318,60 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
 
     // For Friday (day 5) - hold commissions for Monday
     if (dayOfWeek === 5) {
-      // console.log(`Friday detected (${dateStr}), processing commissions immediately`);
-      
-      const { data: fridayBusiness } = await supabase
-        .from('main_balance_transactions')
-        .select('activated_member_id, amount')
-        .eq('plan_type', 'profit-sharing')
-        .gte('transaction_date', `${dateStr}T00:00:00`)
-        .lte('transaction_date', `${dateStr}T23:59:59`);
+  const { data: fridayBusinessMain } = await supabase
+    .from('main_balance_transactions')
+    .select('activated_member_id, amount')
+    .eq('plan_type', 'profit-sharing')
+    .gte('transaction_date', `${dateStr}T00:00:00`)
+    .lte('transaction_date', `${dateStr}T23:59:59`);
 
-      const { data: previousBusiness } = await supabase
-        .from('main_balance_transactions')
-        .select('activated_member_id, amount')
-        .eq('plan_type', 'profit-sharing')
-        .lt('transaction_date', `${dateStr}T00:00:00`);
+  const { data: fridayBusinessRetopup } = await supabase
+    .from('re_top_up_transactions')
+    .select('member_id, amount')
+    .eq('plan_type', 'profit-sharing')
+    .gte('transaction_date', `${dateStr}T00:00:00`)
+    .lte('transaction_date', `${dateStr}T23:59:59`);
 
-      // Calculate Friday's commissions and add immediately
-      const directMembers = teamMembers.filter(m => m.level === 1).length;
-      let dailyCommissions = levels.reduce((sum, level) => {
-        if (directMembers < level) return sum;
-        
-        const levelMembers = teamMembers.filter(m => m.level === level);
-        const dailyProfit = levelMembers.reduce((total, member) => {
-          const memberBusiness = [
-            ...(previousBusiness || []),
-            ...(fridayBusiness || [])
-          ]
-            .filter(b => b.activated_member_id === member.member_id)
-            .reduce((sum, b) => sum + b.amount, 0);
-          return total + (memberBusiness * 0.003);
-        }, 0);
+  const { data: previousBusinessMain } = await supabase
+    .from('main_balance_transactions')
+    .select('activated_member_id, amount')
+    .eq('plan_type', 'profit-sharing')
+    .lt('transaction_date', `${dateStr}T00:00:00`);
 
-        return sum + (dailyProfit * (percentageMap[level] / 100));
-      }, 0);
+  const { data: previousBusinessRetopup } = await supabase
+    .from('re_top_up_transactions')
+    .select('member_id, amount')
+    .eq('plan_type', 'profit-sharing')
+    .lt('transaction_date', `${dateStr}T00:00:00`);
 
-      dailyBreakdown[dateStr] = dailyCommissions;
-      cumulativeIncome += dailyCommissions;
-      
-      currentDate.setDate(currentDate.getDate() + 1);
-      continue;
-    }
+  const combinedBusiness = [
+    ...(previousBusinessMain || []),
+    ...(previousBusinessRetopup || []),
+    ...(fridayBusinessMain || []),
+    ...(fridayBusinessRetopup || [])
+  ];
+
+  const directMembers = teamMembers.filter(m => m.level === 1).length;
+  let dailyCommissions = levels.reduce((sum, level) => {
+    if (directMembers < level) return sum;
+
+    const levelMembers = teamMembers.filter(m => m.level === level);
+    const dailyProfit = levelMembers.reduce((total, member) => {
+      const memberBusiness = combinedBusiness
+        .filter(b => (b.activated_member_id || b.member_id) === member.member_id)
+        .reduce((sum, b) => sum + b.amount, 0);
+      return total + (memberBusiness * 0.003);
+    }, 0);
+
+    return sum + (dailyProfit * (percentageMap[level] / 100));
+  }, 0);
+
+  dailyBreakdown[dateStr] = dailyCommissions;
+  cumulativeIncome += dailyCommissions;
+  currentDate.setDate(currentDate.getDate() + 1);
+  continue;
+}
+
 
     // Skip weekends (0=Sunday, 6=Saturday)
     if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -1386,19 +1400,50 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
     // For weekdays (Monday-Thursday)
     // console.log(`Processing weekday ${dateStr}`);
 
-    const { data: todaysBusiness } = await supabase
+    const { data: todaysMain } = await supabase
   .from('main_balance_transactions')
   .select('activated_member_id, amount')
   .eq('plan_type', 'profit-sharing')
   .gte('transaction_date', `${dateStr}T00:00:00`)
   .lte('transaction_date', `${dateStr}T23:59:59`);
 
+const { data: todaysReTopup } = await supabase
+  .from('re_top_up_transactions')
+  .select('member_id, amount')
+  .eq('plan_type', 'profit-sharing')
+  .gte('transaction_date', `${dateStr}T00:00:00`)
+  .lte('transaction_date', `${dateStr}T23:59:59`);
+
+const todaysBusiness = [
+  ...(todaysMain || []),
+  ...(todaysReTopup || []).map(txn => ({
+    activated_member_id: txn.member_id,
+    amount: txn.amount
+  }))
+];
+
+
 // Get ALL previous business data up to but not including current date
-const { data: previousBusiness } = await supabase
+const { data: prevMain } = await supabase
   .from('main_balance_transactions')
   .select('activated_member_id, amount')
   .eq('plan_type', 'profit-sharing')
   .lt('transaction_date', `${dateStr}T00:00:00`);
+
+const { data: prevReTopup } = await supabase
+  .from('re_top_up_transactions')
+  .select('member_id, amount')
+  .eq('plan_type', 'profit-sharing')
+  .lt('transaction_date', `${dateStr}T00:00:00`);
+
+const previousBusiness = [
+  ...(prevMain || []),
+  ...(prevReTopup || []).map(txn => ({
+    activated_member_id: txn.member_id,
+    amount: txn.amount
+  }))
+];
+
 
 // Filter to only include eligible members (within 60 days)
 const eligibleBusiness = [
@@ -1444,10 +1489,10 @@ let dailyCommissions = levels.reduce((sum, level) => {
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  console.log('Final calculation complete:', { 
-    totalIncome: cumulativeIncome,
-    dailyBreakdown 
-  });
+  // console.log('Final calculation complete:', { 
+  //   totalIncome: cumulativeIncome,
+  //   dailyBreakdown 
+  // });
   return { totalIncome: cumulativeIncome, dailyBreakdown };
 }
 

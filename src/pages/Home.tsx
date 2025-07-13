@@ -326,7 +326,7 @@ const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-blue-900 mb-4">
+            <h2 className="text-3xl md:text-5xl font-bold text-blue-900 mb-4">
               Our{" "}
               <span className="bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
                 Premium Services

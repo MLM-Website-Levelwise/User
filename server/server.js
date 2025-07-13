@@ -1080,28 +1080,43 @@ app.get('/level-income', authenticateToken, async (req, res) => {
 
     // Build team structure - only include activated members
     const buildTeam = (sponsorId, currentLevel = 1, maxLevel = 10) => {
-      if (currentLevel > maxLevel) return [];
-      
-      // Get direct members who are activated
-      const directMembers = allTeamMembers.filter(m => 
-        m.sponsor_code === sponsorId && 
-        activatedMemberIds.has(m.member_id)
-      );
-      
-      let members = [];
+  if (currentLevel > maxLevel) return [];
+  
+  // Get direct members who are activated and within 60 days of top-up
+  const directMembers = allTeamMembers.filter(m => 
+    m.sponsor_code === sponsorId && 
+    activatedMemberIds.has(m.member_id) &&
+    isWithin60Days(m.date_of_joining, selectedDate) // Add this filter
+  );
+  
+  let members = [];
 
-      for (const member of directMembers) {
-        members.push({
-          ...member,
-          level: currentLevel
-        });
-        
-        // Recursively add downline members
-        members = members.concat(buildTeam(member.member_id, currentLevel + 1, maxLevel));
-      }
+  for (const member of directMembers) {
+    members.push({
+      ...member,
+      level: currentLevel
+    });
+    
+    // Recursively add downline members
+    members = members.concat(buildTeam(member.member_id, currentLevel + 1, maxLevel));
+  }
 
-      return members;
-    };
+  return members;
+};
+
+// Add this helper function to check if within 60 days
+function isWithin60Days(topUpDate, selectedDate) {
+  if (!topUpDate) return false;
+  
+  const topUp = new Date(topUpDate);
+  const selected = new Date(selectedDate);
+  
+  // Calculate difference in days
+  const diffTime = selected.getTime() - topUp.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays <= 60;
+}
 
     const teamMembers = buildTeam(currentMember.member_id);
     const directMembers = teamMembers.filter(m => m.level === 1).length;
@@ -1156,20 +1171,49 @@ app.get('/level-income', authenticateToken, async (req, res) => {
 
     // Calculate income data
     const incomeData = levels.map(level => {
-      const levelMembers = teamMembers.filter(m => m.level === level);
-      const totalMembers = levelMembers.length;
-      
-      // Total Profit Bonus (0.3% of cumulative business up to selected date)
-      const totalProfitBonus = levelMembers.reduce((sum, member) => {
-        return sum + (cumulativeBusinessMap.get(member.member_id) || 0);
-      }, 0) * 0.003;
-      
-      const eligible = directMembers >= level;
-      
-      // Daily Profit Bonus (0.3% of just this day's business)
-      const dailyProfitBonus = levelMembers.reduce((sum, member) => {
-        return sum + (dailyBusinessMap.get(member.member_id) || 0);
-      }, 0) * 0.003;
+  const levelMembers = teamMembers.filter(m => m.level === level);
+  const totalMembers = levelMembers.length;
+  
+  // Filter business data to only include transactions from eligible members
+  const eligibleBusinessData = [...(cumulativeBusinessData || []), ...(cumulativeRetopupBusiness || [])]
+    .filter(txn => {
+      const member = teamMembers.find(m => m.member_id === (txn.activated_member_id || txn.member_id));
+      return member && isWithin60Days(member.date_of_joining, selectedDate);
+    });
+
+  const eligibleDailyBusinessData = [...(dailyBusinessData || []), ...(dailyRetopupBusiness || [])]
+    .filter(txn => {
+      const member = teamMembers.find(m => m.member_id === (txn.activated_member_id || txn.member_id));
+      return member && isWithin60Days(member.date_of_joining, selectedDate);
+    });
+
+  // Recreate business maps with only eligible members
+  const eligibleCumulativeBusinessMap = new Map();
+  eligibleBusinessData.forEach(txn => {
+    const memberId = txn.activated_member_id || txn.member_id;
+    eligibleCumulativeBusinessMap.set(memberId, (eligibleCumulativeBusinessMap.get(memberId) || 0) + txn.amount);
+  });
+
+  const eligibleDailyBusinessMap = new Map();
+  eligibleDailyBusinessData.forEach(txn => {
+    const memberId = txn.activated_member_id || txn.member_id;
+    eligibleDailyBusinessMap.set(memberId, (eligibleDailyBusinessMap.get(memberId) || 0) + txn.amount);
+  });
+
+  // Total Profit Bonus (0.3% of cumulative business up to selected date)
+  const totalProfitBonus = levelMembers.reduce((sum, member) => {
+    if (!isWithin60Days(member.date_of_joining, selectedDate)) return sum;
+    return sum + (eligibleCumulativeBusinessMap.get(member.member_id) || 0);
+  }, 0) * 0.003;
+  
+  const eligible = directMembers >= level;
+  
+  // Daily Profit Bonus (0.3% of just this day's business)
+  const dailyProfitBonus = levelMembers.reduce((sum, member) => {
+    if (!isWithin60Days(member.date_of_joining, selectedDate)) return sum;
+    return sum + (eligibleDailyBusinessMap.get(member.member_id) || 0);
+  }, 0) * 0.003;
+  
       
       // Commission = Total Profit Bonus * percentage%
       const commission = eligible ? totalProfitBonus * (percentageMap[level] / 100) : 0;
@@ -1197,10 +1241,10 @@ app.get('/level-income', authenticateToken, async (req, res) => {
     // Calculate total income by simulating all previous days' commissions
 // With this corrected version:
 let totalIncome = 0;
+let dailyBreakdown = {}; // Initialize dailyBreakdown object
 
-// 1. First calculate for all previous dates
 if (date) { // Only if a specific date is selected
-  const { totalIncome: previousIncome } = await calculatePreviousDaysIncome(
+  const { totalIncome: previousIncome, dailyBreakdown: prevDailyBreakdown } = await calculatePreviousDaysIncome(
     currentMember.member_id, 
     selectedDate,
     teamMembers,
@@ -1208,6 +1252,7 @@ if (date) { // Only if a specific date is selected
     percentageMap
   );
   totalIncome += previousIncome;
+  dailyBreakdown = prevDailyBreakdown; // Store the breakdown
 }
 
 
@@ -1223,7 +1268,7 @@ totalIncome += todaysCommissions;
 
 // Helper function to calculate previous days' income
 async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, levels, percentageMap) {
-  console.log('Starting calculation for member:', memberId);
+  // console.log('Starting calculation for member:', memberId);
 
   // 1. Get member's activation date
   const { data: activationData } = await supabase
@@ -1252,12 +1297,12 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
   const dailyBreakdown = {};
   const pendingCommissions = []; // Holds Friday commissions + weekend investments
 
-  console.log(`Processing from ${startDate} to ${cutoffDate}`);
+  // console.log(`Processing from ${startDate} to ${cutoffDate}`);
 
   // Check if cutoff date is weekend
   const isWeekendCutoff = cutoffDay === 0 || cutoffDay === 6;
   if (isWeekendCutoff) {
-    console.log(`Selected date ${cutoffDateStr} is weekend - no commissions`);
+    // console.log(`Selected date ${cutoffDateStr} is weekend - no commissions`);
     dailyBreakdown[cutoffDateStr] = 0;
   }
 
@@ -1273,7 +1318,7 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
 
     // For Friday (day 5) - hold commissions for Monday
     if (dayOfWeek === 5) {
-      console.log(`Friday detected (${dateStr}), holding commissions for Monday`);
+      // console.log(`Friday detected (${dateStr}), processing commissions immediately`);
       
       const { data: fridayBusiness } = await supabase
         .from('main_balance_transactions')
@@ -1288,9 +1333,9 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
         .eq('plan_type', 'profit-sharing')
         .lt('transaction_date', `${dateStr}T00:00:00`);
 
-      // Calculate Friday's commissions but don't add to total yet
+      // Calculate Friday's commissions and add immediately
       const directMembers = teamMembers.filter(m => m.level === 1).length;
-      let fridayCommissions = levels.reduce((sum, level) => {
+      let dailyCommissions = levels.reduce((sum, level) => {
         if (directMembers < level) return sum;
         
         const levelMembers = teamMembers.filter(m => m.level === level);
@@ -1307,21 +1352,16 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
         return sum + (dailyProfit * (percentageMap[level] / 100));
       }, 0);
 
-      // Store Friday's commissions to be added on Monday
-      pendingCommissions.push({
-        date: dateStr,
-        amount: fridayCommissions
-      });
+      dailyBreakdown[dateStr] = dailyCommissions;
+      cumulativeIncome += dailyCommissions;
       
-      // Show 0 for Friday in breakdown (since we're holding until Monday)
-      dailyBreakdown[dateStr] = 0;
       currentDate.setDate(currentDate.getDate() + 1);
       continue;
     }
 
     // Skip weekends (0=Sunday, 6=Saturday)
     if (dayOfWeek === 0 || dayOfWeek === 6) {
-      console.log(`Weekend detected (${dateStr}), tracking investments only`);
+      // console.log(`Weekend detected (${dateStr}), tracking investments only`);
       
       const { data: weekendBusiness } = await supabase
         .from('main_balance_transactions')
@@ -1344,7 +1384,7 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
     }
 
     // For weekdays (Monday-Thursday)
-    console.log(`Processing weekday ${dateStr}`);
+    // console.log(`Processing weekday ${dateStr}`);
 
     const { data: todaysBusiness } = await supabase
       .from('main_balance_transactions')
@@ -1401,10 +1441,10 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  console.log('Final calculation complete:', { 
-    totalIncome: cumulativeIncome,
-    dailyBreakdown 
-  });
+  // console.log('Final calculation complete:', { 
+  //   totalIncome: cumulativeIncome,
+  //   dailyBreakdown 
+  // });
   return { totalIncome: cumulativeIncome, dailyBreakdown };
 }
 
@@ -1412,12 +1452,14 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
       date: selectedDate,
       directMembers, // Only activated direct members count
       incomeData,
+      teamMembers,
       summary: {
         totalIncome,
         todaysIncome,
         activeLevels,
         directMembers
-      }
+      },
+      dailyBreakdown,
     });
 
   } catch (error) {

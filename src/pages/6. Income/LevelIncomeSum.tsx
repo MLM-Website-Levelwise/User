@@ -336,13 +336,10 @@ const LevelIncomeContent = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {currentRecords.map((record, index) => (
-                <tr
-                  key={record.id}
-                  className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                >
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
-                    {record.id}
-                  </td>
+  <tr key={record.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">
+      {records.length - ((currentPage - 1) * recordsPerPage + index)}
+    </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-700">
                     {record.date}
                   </td>

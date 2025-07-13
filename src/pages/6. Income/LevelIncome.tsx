@@ -608,7 +608,7 @@ const calculatePayoutDays = (member: any, selectedDate: string) => {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 w-full overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-700 rounded-xl shadow-lg p-4 md:p-6 text-white">
+          {/* <div className="bg-gradient-to-r from-blue-500 to-blue-700 rounded-xl shadow-lg p-4 md:p-6 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-100 text-sm font-medium">
@@ -634,7 +634,7 @@ const calculatePayoutDays = (member: any, selectedDate: string) => {
               </div>
               <DollarSign size={40} className="text-green-100 md:size-10" />
             </div>
-          </div>
+          </div> */}
 
           <div className="bg-gradient-to-r from-purple-500 to-purple-700 rounded-xl shadow-lg p-4 md:p-6 text-white">
             <div className="flex items-center justify-between">

@@ -620,9 +620,9 @@ const calculatePayoutDays = (member: any, selectedDate: string) => {
               </div>
               <DollarSign size={40} className="text-blue-100 md:size-10" />
             </div>
-          </div>
+          </div> */}
 
-          <div className="bg-gradient-to-r from-green-500 to-green-700 rounded-xl shadow-lg p-4 md:p-6 text-white">
+          {/* <div className="bg-gradient-to-r from-green-500 to-green-700 rounded-xl shadow-lg p-4 md:p-6 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-100 text-sm font-medium">

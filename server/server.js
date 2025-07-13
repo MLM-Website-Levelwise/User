@@ -1387,40 +1387,43 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
     // console.log(`Processing weekday ${dateStr}`);
 
     const { data: todaysBusiness } = await supabase
-      .from('main_balance_transactions')
-      .select('activated_member_id, amount')
-      .eq('plan_type', 'profit-sharing')
-      .gte('transaction_date', `${dateStr}T00:00:00`)
-      .lte('transaction_date', `${dateStr}T23:59:59`);
+  .from('main_balance_transactions')
+  .select('activated_member_id, amount')
+  .eq('plan_type', 'profit-sharing')
+  .gte('transaction_date', `${dateStr}T00:00:00`)
+  .lte('transaction_date', `${dateStr}T23:59:59`);
 
-    const { data: previousBusiness } = await supabase
-      .from('main_balance_transactions')
-      .select('activated_member_id, amount')
-      .eq('plan_type', 'profit-sharing')
-      .lt('transaction_date', `${dateStr}T00:00:00`);
+// Get ALL previous business data up to but not including current date
+const { data: previousBusiness } = await supabase
+  .from('main_balance_transactions')
+  .select('activated_member_id, amount')
+  .eq('plan_type', 'profit-sharing')
+  .lt('transaction_date', `${dateStr}T00:00:00`);
 
-    // Combine all relevant business (previous + today's + pending investments)
-    const allBusiness = [
-      ...(previousBusiness || []),
-      ...(todaysBusiness || []),
-      ...pendingCommissions.flatMap(pc => pc.investments || [])
-    ];
-    
-    // Calculate commissions including pending Friday commissions
-    const directMembers = teamMembers.filter(m => m.level === 1).length;
-    let dailyCommissions = levels.reduce((sum, level) => {
-      if (directMembers < level) return sum;
-      
-      const levelMembers = teamMembers.filter(m => m.level === level);
-      const dailyProfit = levelMembers.reduce((total, member) => {
-        const memberBusiness = allBusiness
-          .filter(b => b.activated_member_id === member.member_id)
-          .reduce((sum, b) => sum + b.amount, 0);
-        return total + (memberBusiness * 0.003);
-      }, 0);
+// Filter to only include eligible members (within 60 days)
+const eligibleBusiness = [
+  ...(previousBusiness || []),
+  ...(todaysBusiness || [])
+].filter(txn => {
+  const member = teamMembers.find(m => m.member_id === (txn.activated_member_id || txn.member_id));
+  return member && isWithin60Days(member.date_of_joining, dateStr);
+});
 
-      return sum + (dailyProfit * (percentageMap[level] / 100));
-    }, 0);
+// Then calculate commissions using this filtered data
+const directMembers = teamMembers.filter(m => m.level === 1).length;
+let dailyCommissions = levels.reduce((sum, level) => {
+  if (directMembers < level) return sum;
+  
+  const levelMembers = teamMembers.filter(m => m.level === level);
+  const dailyProfit = levelMembers.reduce((total, member) => {
+    const memberBusiness = eligibleBusiness
+      .filter(b => b.activated_member_id === member.member_id)
+      .reduce((sum, b) => sum + b.amount, 0);
+    return total + (memberBusiness * 0.003);
+  }, 0);
+
+  return sum + (dailyProfit * (percentageMap[level] / 100));
+}, 0);
 
     // Add any pending Friday commissions (only on Monday)
     if (dayOfWeek === 1) { // Monday
@@ -1441,10 +1444,10 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  // console.log('Final calculation complete:', { 
-  //   totalIncome: cumulativeIncome,
-  //   dailyBreakdown 
-  // });
+  console.log('Final calculation complete:', { 
+    totalIncome: cumulativeIncome,
+    dailyBreakdown 
+  });
   return { totalIncome: cumulativeIncome, dailyBreakdown };
 }
 

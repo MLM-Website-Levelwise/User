@@ -49,45 +49,46 @@ const LevelIncomeContent = () => {
   const [endDate, setEndDate] = useState("");
 
   const fetchData = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const response = await axios.get(`${API_BASE_URL}/level-income`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        params: {
-          date: startDate || endDate ? null : new Date().toISOString().split('T')[0]
-        }
-      });
-      
-      // Transform the dailyBreakdown data into table records
-      const dailyBreakdown = response.data.dailyBreakdown || {};
-      const recordsArray: IncomeRecord[] = Object.entries(dailyBreakdown)
-        .map(([date, amount], index) => ({
-          id: index + 1,
-          date: formatDate(date),
-          amount: Number(amount)
-        }))
-        .sort((a, b) => new Date(b.date.split('-').reverse().join('-')).getTime() - 
-                        new Date(a.date.split('-').reverse().join('-')).getTime());
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    
+    const response = await axios.get(`${API_BASE_URL}/level-income`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      params: {
+        date: startDate || endDate ? null : new Date().toISOString().split('T')[0]
+      }
+    });
+    
+    // Transform the dailyBreakdown data into table records, excluding 0 amounts
+    const dailyBreakdown = response.data.dailyBreakdown || {};
+    const recordsArray: IncomeRecord[] = Object.entries(dailyBreakdown)
+      .filter(([_, amount]) => Number(amount) > 0) // Only include days with positive income
+      .map(([date, amount], index) => ({
+        id: index + 1,
+        date: formatDate(date),
+        amount: Number(amount),
+        originalDate: date // Store original date for filtering
+      }))
+      .sort((a, b) => new Date(b.originalDate).getTime() - new Date(a.originalDate).getTime());
 
-      setIncomeData(response.data.incomeData || []);
-      setSummary({
-        totalIncome: response.data.summary?.totalIncome || 0,
-        todaysIncome: response.data.summary?.todaysIncome || 0,
-        activeLevels: response.data.summary?.activeLevels || 0,
-        directMembers: response.data.summary?.directMembers || 0
-      });
-      setRecords(recordsArray);
-      setLoading(false);
-    } catch (err) {
-      setError("Failed to fetch income data. Please try again.");
-      setLoading(false);
-      console.error("Error fetching income data:", err);
-    }
-  };
+    setIncomeData(response.data.incomeData || []);
+    setSummary({
+      totalIncome: response.data.summary?.totalIncome || 0,
+      todaysIncome: response.data.summary?.todaysIncome || 0,
+      activeLevels: response.data.summary?.activeLevels || 0,
+      directMembers: response.data.summary?.directMembers || 0
+    });
+    setRecords(recordsArray);
+    setLoading(false);
+  } catch (err) {
+    setError("Failed to fetch income data. Please try again.");
+    setLoading(false);
+    console.error("Error fetching income data:", err);
+  }
+};
 
   useEffect(() => {
     fetchData();

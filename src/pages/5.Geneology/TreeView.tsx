@@ -176,6 +176,9 @@ const MLMBinaryTree = () => {
             <div className="text-center mt-2 text-sm font-semibold text-gray-800">
               {member.member_id}
             </div>
+            <div className="text-center mt-2 text-sm font-semibold text-gray-800">
+              {member.name}
+            </div>
             <div className="text-xs mt-1">
               <span className={`px-2 py-0.5 rounded-full font-medium ${statusColor}`}>
                 {statusLabel}

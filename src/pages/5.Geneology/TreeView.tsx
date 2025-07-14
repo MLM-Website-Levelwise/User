@@ -164,9 +164,14 @@ const MLMBinaryTree = () => {
             className="relative flex flex-col items-center cursor-pointer p-2"
             onClick={() => handleNodeClick(member)}
           >
-            <div className={`w-20 h-20 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-md`}>
-              <User className={`w-10 h-10 ${iconColor}`} />
-            </div>
+            <div
+  className={`w-20 h-20 rounded-full flex items-center justify-center shadow-md ${
+    member.active_status ? 'bg-green-500' : 'bg-red-500'
+  }`}
+>
+  <User className="w-10 h-10 text-white" />
+</div>
+
             <div className="text-center mt-2 text-sm font-semibold text-gray-800">
               {member.member_id}
             </div>

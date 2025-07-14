@@ -218,44 +218,57 @@ const MLMBinaryTree = () => {
 
   return (
     <div className="flex flex-col items-center relative">
-      {/* Parent Node */}
-      <div className="relative flex flex-col items-center">
-        <MemberNode member={node} isRoot={depth === 0} />
+      {/* Node */}
+      <MemberNode member={node} isRoot={depth === 0} />
 
-        {(leftChild || rightChild) && (
-          <>
-            <div className="w-px h-6 bg-gray-300"></div>
-            <div className="flex items-center justify-center relative">
-              <div className="w-16 h-px bg-gray-300" />
-              <div className="w-6 h-px bg-gray-300" />
-              <div className="w-16 h-px bg-gray-300" />
-            </div>
-          </>
-        )}
-      </div>
+      {/* Connector Lines (below node) */}
+      {(leftChild || rightChild) && (
+        <>
+          {/* Vertical line from node to horizontal bar */}
+          <div className="h-6 w-px bg-gray-300" />
 
+          {/* Horizontal line between left and right */}
+          <div className="flex items-center justify-center relative">
+  <div
+    className="h-px bg-gray-300"
+    style={{ width: depth === 0 ? "16rem" : "6rem" }}
+  />
+  <div className="w-6 h-px bg-gray-300" />
+  <div
+    className="h-px bg-gray-300"
+    style={{ width: depth === 0 ? "10rem" : "6rem" }}
+  />
+</div>
+
+        </>
+      )}
+
+      {/* Children */}
       {(leftChild || rightChild) && (
         <div className="flex justify-center gap-32 mt-4">
-          {/* LEFT */}
+          {/* Left */}
           <div className="flex flex-col items-center">
-            <div className="w-px h-6 bg-gray-300"></div>
-            {leftChild ? renderTree(leftChild, depth + 1) : (
-              <MemberNode member={{ member_id: "", active_status: false } as TeamMember} isPlaceholder />
-            )}
+            <div className="h-6 w-px bg-gray-300" />
+            {leftChild
+              ? renderTree(leftChild, depth + 1)
+              : <MemberNode member={{ member_id: "", active_status: false } as TeamMember} isPlaceholder />
+            }
           </div>
 
-          {/* RIGHT */}
+          {/* Right */}
           <div className="flex flex-col items-center">
-            <div className="w-px h-6 bg-gray-300"></div>
-            {rightChild ? renderTree(rightChild, depth + 1) : (
-              <MemberNode member={{ member_id: "", active_status: false } as TeamMember} isPlaceholder />
-            )}
+            <div className="h-6 w-px bg-gray-300" />
+            {rightChild
+              ? renderTree(rightChild, depth + 1)
+              : <MemberNode member={{ member_id: "", active_status: false } as TeamMember} isPlaceholder />
+            }
           </div>
         </div>
       )}
     </div>
   );
 };
+
 
 
 

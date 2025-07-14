@@ -91,8 +91,9 @@ const MLMBinaryTree = () => {
   }, []);
 
   const handleNodeClick = (member: TeamMember) => {
-    setCurrentLevels(4); // Show 4 levels when drilling down
-    fetchTeamData(member.member_id, 4);
+    setCurrentLevels(3); // Show 4 levels when drilling down
+    fetchTeamData(member.member_id, 3);
+
   };
 
   const handleGoBack = (index: number) => {
@@ -296,13 +297,10 @@ const MLMBinaryTree = () => {
                       </Button>
                     )}
                     <select 
-                      value={currentLevels}
-                      onChange={(e) => {
-                        setCurrentLevels(Number(e.target.value));
-                        fetchTeamData(treeData?.root.member_id, Number(e.target.value));
-                      }}
-                      className="bg-gray-700 text-white rounded px-2 py-1 text-sm border-none focus:ring-1 focus:ring-gray-500"
-                    >
+  value={3}
+  disabled
+  className="bg-gray-600 text-white rounded px-2 py-1 text-sm border-none cursor-not-allowed"
+>
                       <option value={3}>3 Levels</option>
                       <option value={4}>4 Levels</option>
                       <option value={5}>5 Levels</option>

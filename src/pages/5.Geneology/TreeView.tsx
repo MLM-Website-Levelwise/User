@@ -89,6 +89,21 @@ const MLMBinaryTree = () => {
   useEffect(() => {
     fetchTeamData(); // Initial load with logged-in user as root
   }, []);
+  
+  const [isMobile, setIsMobile] = useState<boolean>(() => window.innerWidth < 768);
+
+useEffect(() => {
+  const handleResize = () => {
+    const mobile = window.innerWidth < 768;
+    setIsMobile(mobile);
+  };
+
+  handleResize(); // ensure it's checked on mount
+
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
+
 
   const handleNodeClick = (member: TeamMember) => {
     setCurrentLevels(3); // Show 4 levels when drilling down
@@ -173,12 +188,22 @@ const MLMBinaryTree = () => {
   <User className="w-10 h-10 text-white" />
 </div>
 
-            <div className="text-center mt-2 text-sm font-semibold text-gray-800">
-              {member.member_id}
-            </div>
-            <div className="text-center mt-2 text-sm font-semibold text-gray-800">
-              {member.name}
-            </div>
+            <div
+  className={`text-center mt-2 font-semibold text-gray-800 ${
+    isMobile ? 'text-2xl' : 'text-sm'
+  }`}
+>
+  {member.member_id}
+</div>
+
+<div
+  className={`text-center font-medium text-gray-600 ${
+    isMobile ? 'text-2xl' : 'text-xs'
+  }`}
+>
+  {member.name}
+</div>
+
             <div className="text-xs mt-1">
               <span className={`px-2 py-0.5 rounded-full font-medium ${statusColor}`}>
                 {statusLabel}
@@ -370,14 +395,23 @@ const MLMBinaryTree = () => {
                     </div>
                   ) : treeData ? (
                     <div 
-                      ref={treeContainerRef}
-                      className="overflow-auto p-4 bg-white rounded-lg border"
-                      style={{ scrollBehavior: 'smooth' }}
-                    >
-                      <div className="min-w-max mx-auto">
-                        {renderTree(treeData.root)}
-                      </div>
-                    </div>
+  ref={treeContainerRef}
+  className="p-10 bg-white rounded-lg border overflow-hidden"
+>
+  <div className="flex justify-center">
+    <div
+      className="w-fit"
+      style={{
+        transform: isMobile ? 'scale(0.35)' : 'scale(1)',
+        transformOrigin: 'top center',
+        minHeight: isMobile ? '400vh' : 'auto',
+      }}
+    >
+      {renderTree(treeData.root)}
+    </div>
+  </div>
+</div>
+
                   ) : (
                     <div className="text-center py-12 text-gray-500">
                       No team data available

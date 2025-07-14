@@ -133,101 +133,126 @@ const MLMBinaryTree = () => {
     }
   };
 
-  const MemberNode = ({ member, isRoot = false }: { member: TeamMember; isRoot?: boolean }) => {
-    const bgColor = isRoot ? "bg-purple-600" : member.position === "Left" ? "bg-blue-500" : "bg-green-500";
-    const statusColor = member.active_status ? "bg-green-500" : "bg-red-500";
-    const hasChildren = member.children && member.children.length > 0;
+  const MemberNode = ({
+  member,
+  isRoot = false,
+  isPlaceholder = false,
+}: {
+  member: TeamMember;
+  isRoot?: boolean;
+  isPlaceholder?: boolean;
+}) => {
+  const iconColor = member.active_status ? "text-green-600" : "text-red-600";
+  const statusColor = member.active_status ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
+  const statusLabel = member.active_status ? "Active" : "Inactive";
 
+  if (isPlaceholder) {
     return (
-      <HoverCard>
-        <HoverCardTrigger asChild>
-          <div className="flex flex-col items-center">
-            <div 
-              className={`relative flex flex-col items-center cursor-pointer p-2 group ${hasChildren ? 'mb-4' : 'mb-1'}`}
-              onClick={() => handleNodeClick(member)}
-            >
-              <div className={`w-3 h-3 rounded-full ${statusColor} absolute top-1 right-1`} />
-              <div className={`w-12 h-12 rounded-full ${bgColor} flex items-center justify-center transition-all group-hover:scale-110`}>
-                <User className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-center mt-1">
-                <div className="font-medium text-xs">{member.member_id}</div>
-                <div className="text-xs text-gray-600 truncate w-20">{member.name}</div>
-              </div>
-            </div>
-            
-            {hasChildren && (
-              <div className="absolute top-full left-1/2 transform -translate-x-1/2">
-                <div className="w-0 h-4 border-l border-gray-300 mx-auto"></div>
-              </div>
-            )}
-          </div>
-        </HoverCardTrigger>
-        <HoverCardContent className="w-80">
-          <div className="space-y-2">
-            <h4 className="font-semibold">{member.name}</h4>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>ID: {member.member_id}</div>
-              <div>Sponsor: {member.sponsor_code}</div>
-              <div>Position: {member.position}</div>
-              <div>Status: 
-                <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${
-                  member.active_status ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {member.active_status ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-              <div>Joined: {new Date(member.date_of_joining).toLocaleDateString()}</div>
-              <div>Level: {member.level}</div>
-            </div>
-            <Button 
-              size="sm" 
-              className="w-full mt-2"
-              onClick={() => handleNodeClick(member)}
-            >
-              View Downline (4 Levels)
-            </Button>
-          </div>
-        </HoverCardContent>
-      </HoverCard>
+      <div className="flex flex-col items-center">
+        <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center shadow-inner">
+          <User className="w-10 h-10 text-gray-400" />
+        </div>
+      </div>
     );
-  };
+  }
+
+  return (
+    <HoverCard>
+      <HoverCardTrigger asChild>
+        <div className="flex flex-col items-center">
+          <div
+            className="relative flex flex-col items-center cursor-pointer p-2"
+            onClick={() => handleNodeClick(member)}
+          >
+            <div className={`w-20 h-20 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-md`}>
+              <User className={`w-10 h-10 ${iconColor}`} />
+            </div>
+            <div className="text-center mt-2 text-sm font-semibold text-gray-800">
+              {member.member_id}
+            </div>
+            <div className="text-xs mt-1">
+              <span className={`px-2 py-0.5 rounded-full font-medium ${statusColor}`}>
+                {statusLabel}
+              </span>
+            </div>
+          </div>
+        </div>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-80">
+        <div className="space-y-2">
+          <h4 className="font-semibold">{member.name}</h4>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>ID: {member.member_id}</div>
+            <div>Sponsor: {member.sponsor_code}</div>
+            <div>Position: {member.position}</div>
+            <div>Status:
+              <span className={`ml-1 px-2 py-0.5 rounded-full text-xs ${statusColor}`}>
+                {statusLabel}
+              </span>
+            </div>
+            <div>Joined: {new Date(member.date_of_joining).toLocaleDateString()}</div>
+            <div>Level: {member.level}</div>
+          </div>
+          <Button
+            size="sm"
+            className="w-full mt-2"
+            onClick={() => handleNodeClick(member)}
+          >
+            View Downline (4 Levels)
+          </Button>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+};
+
 
   const renderTree = (node: TeamMember, depth = 0): JSX.Element => {
-  // Only show left and right children (binary structure)
-  const leftChild = node.children?.find(c => c.position === "Left");
-  const rightChild = node.children?.find(c => c.position === "Right");
+  const leftChild = node.children?.find(c => c.position === "Left") || null;
+  const rightChild = node.children?.find(c => c.position === "Right") || null;
 
   return (
     <div className="flex flex-col items-center relative">
-      <MemberNode member={node} isRoot={depth === 0} />
-      
-      {(leftChild || rightChild) && depth < currentLevels - 1 && (
-        <div className="flex justify-center mt-6 relative">
-          {/* Left branch */}
-          {leftChild && (
-            <div className="flex flex-col items-center mr-16">
-              <div className="h-6 w-px bg-gray-300 absolute top-0 left-1/2 -translate-x-8"></div>
-              <div className="relative">
-                {renderTree(leftChild, depth + 1)}
-              </div>
+      {/* Parent Node */}
+      <div className="relative flex flex-col items-center">
+        <MemberNode member={node} isRoot={depth === 0} />
+
+        {(leftChild || rightChild) && (
+          <>
+            <div className="w-px h-6 bg-gray-300"></div>
+            <div className="flex items-center justify-center relative">
+              <div className="w-16 h-px bg-gray-300" />
+              <div className="w-6 h-px bg-gray-300" />
+              <div className="w-16 h-px bg-gray-300" />
             </div>
-          )}
-          
-          {/* Right branch */}
-          {rightChild && (
-            <div className="flex flex-col items-center ml-16">
-              <div className="h-6 w-px bg-gray-300 absolute top-0 right-1/2 translate-x-8"></div>
-              <div className="relative">
-                {renderTree(rightChild, depth + 1)}
-              </div>
-            </div>
-          )}
+          </>
+        )}
+      </div>
+
+      {(leftChild || rightChild) && (
+        <div className="flex justify-center gap-32 mt-4">
+          {/* LEFT */}
+          <div className="flex flex-col items-center">
+            <div className="w-px h-6 bg-gray-300"></div>
+            {leftChild ? renderTree(leftChild, depth + 1) : (
+              <MemberNode member={{ member_id: "", active_status: false } as TeamMember} isPlaceholder />
+            )}
+          </div>
+
+          {/* RIGHT */}
+          <div className="flex flex-col items-center">
+            <div className="w-px h-6 bg-gray-300"></div>
+            {rightChild ? renderTree(rightChild, depth + 1) : (
+              <MemberNode member={{ member_id: "", active_status: false } as TeamMember} isPlaceholder />
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 };
+
+
 
   return (
     <div className="min-h-screen bg-gray-50">

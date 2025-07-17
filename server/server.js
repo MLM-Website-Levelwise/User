@@ -4,6 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const axios = require('axios');
 
 const app = express();
 app.use(express.json());
@@ -159,6 +160,186 @@ app.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+//Packages
+app.get('/packages', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('packages')
+      .select('*')
+      .order('amount', { ascending: true });
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching packages:', error);
+    res.status(500).json({ error: 'Failed to fetch packages' });
+  }
+});
+
+// Get single package by ID
+app.get('/packages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const { data, error } = await supabase
+      .from('packages')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Package not found' });
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching package:', error);
+    res.status(500).json({ error: 'Failed to fetch package' });
+  }
+});
+
+// Create new package
+// In your Express route
+app.post('/packages', async (req, res) => {
+  try {
+    const { plan_name, name, amount, direct_bonus, matching_value, growth_units, level_value } = req.body;
+
+    // Validate required fields
+    const requiredFields = {
+      plan_name: 'Plan Name',
+      name: 'Package Name',
+      amount: 'Amount',
+      direct_bonus: 'Direct Bonus',
+      matching_value: 'Matching Value',
+      growth_units: 'Growth Units',
+      level_value: 'Level Value'
+    };
+
+    const missingFields = [];
+    for (const [field, name] of Object.entries(requiredFields)) {
+      if (req.body[field] === undefined || req.body[field] === null) {
+        missingFields.push(name);
+      }
+    }
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        missing_fields: missingFields
+      });
+    }
+
+    // Validate data types
+    if (typeof plan_name !== 'string' || plan_name.trim().length === 0) {
+      return res.status(400).json({ error: 'Plan Name must be a non-empty string' });
+    }
+
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'Amount must be a positive number' });
+    }
+
+    // Check for duplicate package names
+    const { data: existingPackage, error: lookupError } = await supabase
+      .from('packages')
+      .select('id')
+      .eq('name', name)  // Only check name, not plan_name
+      .maybeSingle();
+
+    if (existingPackage) {
+      return res.status(400).json({ 
+        error: 'Package with this name already exists',
+        conflict: 'name'
+      });
+    }
+
+    // Insert the new package
+    const { data, error } = await supabase
+      .from('packages')
+      .insert([{
+        plan_name,
+        name,
+        amount,
+        direct_bonus,
+        matching_value,
+        growth_units,
+        level_value
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return res.status(400).json({ 
+        error: 'Database error',
+        details: error.message 
+      });
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Server error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
+  }
+});
+
+// Update package
+app.put('/packages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { plan_name, name, amount, directBonus, matchingValue, growthUnits, levelValue } = req.body;
+
+    // Validate input
+    if (!plan_name || !name || !amount || !directBonus || !matchingValue || !growthUnits || !levelValue) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('packages')
+      .update({
+        plan_name,
+        name,
+        amount: parseFloat(amount),
+        direct_bonus: parseFloat(directBonus),
+        matching_value: parseFloat(matchingValue),
+        growth_units: parseInt(growthUnits),
+        level_value: parseFloat(levelValue)
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Package not found' });
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error updating package:', error);
+    res.status(500).json({ error: 'Failed to update package' });
+  }
+});
+
+// Delete package
+app.delete('/packages/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('packages')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.status(204).end();
+  } catch (error) {
+    console.error('Error deleting package:', error);
+    res.status(500).json({ error: 'Failed to delete package' });
   }
 });
 
@@ -551,6 +732,109 @@ app.get('/team-structure', authenticateToken, async (req, res) => {
       error: 'Failed to fetch team structure',
       details: error.message,
       stack: error.stack 
+    });
+  }
+});
+
+//tree income
+// Add this new endpoint to your backend
+app.get('/matching-income', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.member_id;
+    const API_BASE_URL = process.env.URL;
+
+    // 1. Get ALL packages first
+    const { data: allPackages, error: packagesError } = await supabase
+      .from('packages')
+      .select('*');
+    
+    if (packagesError) throw packagesError;
+
+    // 2. Find growth packages (plan_name = 'Growth Package')
+    const growthPackages = allPackages.filter(pkg => pkg.plan_name === 'Growth Package');
+    const growthPackageNames = growthPackages.map(p => p.name);
+
+    // 3. Get team structure
+    const teamResponse = await axios.get(`${API_BASE_URL}/team-structure?root_id=${userId}`, {
+      headers: { Authorization: req.headers.authorization }
+    });
+    const userTree = teamResponse.data;
+
+    // 4. Counting function - only requires growth package for downline members
+    const countLeg = async (node, side) => {
+      if (!node) return 0;
+      
+      // Get member's package info
+      const { data: memberData, error: memberError } = await supabase
+        .from('members')
+        .select('package, active_status')
+        .eq('member_id', node.member_id)
+        .single();
+
+      if (memberError) throw memberError;
+
+      // For root user (the one requesting), only check active status
+      // For all others, check both active status AND growth package
+      const isRootUser = node.member_id === userId;
+      const isValid = memberData.active_status && 
+                     (isRootUser || growthPackageNames.includes(memberData.package));
+      
+      let count = isValid ? 1 : 0;
+      
+      // Count children on the specified side
+      if (node.children) {
+        const sideChild = node.children.find(c => c.position === side);
+        if (sideChild) count += await countLeg(sideChild, side);
+      }
+      
+      return count;
+    };
+
+    // 5. Calculate counts
+    const leftCount = userTree.children 
+      ? await countLeg(userTree.children.find(c => c.position === 'Left'), 'Left')
+      : 0;
+      
+    const rightCount = userTree.children
+      ? await countLeg(userTree.children.find(c => c.position === 'Right'), 'Right')
+      : 0;
+
+    // 6. Get default matching value (from first growth package)
+    const defaultMatchingValue = growthPackages[0]?.matching_value || 5;
+
+    // 7. Income calculation
+    const incomeRecords = [];
+    if (leftCount > 0 && rightCount > 0) {
+      const matches = Math.min(leftCount, rightCount);
+      incomeRecords.push({
+        date: new Date().toISOString().split('T')[0],
+        memberId: userId,
+        leftCount: leftCount * defaultMatchingValue,
+        rightCount: rightCount * defaultMatchingValue,
+        matches,
+        income: defaultMatchingValue,
+        matchingPV: defaultMatchingValue,
+        matchingValueUsed: defaultMatchingValue
+      });
+    }
+
+    res.json({
+      success: true,
+      data: incomeRecords,
+      debug: {
+        leftCount,
+        rightCount,
+        growthPackageNames,
+        defaultMatchingValue
+      }
+    });
+
+  } catch (error) {
+    console.error('Matching income error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Calculation failed',
+      details: error.message
     });
   }
 });

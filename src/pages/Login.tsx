@@ -53,11 +53,11 @@ const Login = () => {
     >
       {/* Navbar - Consistent with Home Page */}
       <nav className="navbar fixed top-0 w-full bg-[rgba(2,21,61,0.95)] backdrop-blur z-[1000] py-3 transition-all duration-300">
-        <div className="nav-container max-w-[1200px] mx-auto flex justify-between items-center px-8">
+        <div className="nav-container max-w-[1200px] mx-auto flex justify-between items-center px-4 sm:px-8">
           {/* Logo */}
           <a
             href="/"
-            className="logo text-yellow-400 font-bold text-xl hidden md:inline-block"
+            className="logo text-yellow-400 font-bold text-lg hidden md:inline-block"
           >
             Prime Next
           </a>
@@ -65,10 +65,10 @@ const Login = () => {
           {/* Back to Home Link */}
           <a
             href="/"
-            className="text-white hover:text-yellow-400 font-medium transition-colors duration-200 flex items-center"
+            className="text-white hover:text-yellow-400 font-medium transition-colors duration-200 flex items-center text-sm"
           >
             <svg
-              className="w-5 h-5 mr-1"
+              className="w-4 h-4 mr-1"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -84,183 +84,84 @@ const Login = () => {
           </a>
         </div>
       </nav>
+
       {/* Floating circles background */}
       <div className="absolute inset-0 overflow-hidden">
         {/* Large circles */}
-        <div className="absolute w-64 h-64 bg-white bg-opacity-5 rounded-full -top-32 -left-32 animate-pulse"></div>
-        {/* <div
-          className="absolute w-96 h-96 bg-white bg-opacity-3 rounded-full -top-48 -right-48 animate-pulse"
-          style={{ animationDelay: "2s" }}
-        ></div> */}
-        {/* <div
-          className="absolute w-80 h-80 bg-white bg-opacity-4 rounded-full -bottom-40 -left-40 animate-pulse"
-          style={{ animationDelay: "4s" }}
-        ></div>
-        <div
-          className="absolute w-72 h-72 bg-white bg-opacity-3 rounded-full -bottom-36 -right-36 animate-pulse"
-          style={{ animationDelay: "6s" }}
-        ></div> */}
-        <div className="absolute w-64 h-64 bg-white bg-opacity-5 rounded-full -bottom-36 -right-36 animate-pulse"></div>
+        <div className="absolute w-48 h-48 bg-white bg-opacity-5 rounded-full -top-24 -left-24 animate-pulse"></div>
+        <div className="absolute w-48 h-48 bg-white bg-opacity-5 rounded-full -bottom-28 -right-28 animate-pulse"></div>
 
         {/* Small floating circles */}
         <div
-          className="absolute w-8 h-8 bg-white bg-opacity-20 rounded-full top-20 left-20 animate-bounce"
+          className="absolute w-6 h-6 bg-white bg-opacity-20 rounded-full top-16 left-16 animate-bounce"
           style={{ animationDelay: "1s" }}
         ></div>
         <div
-          className="absolute w-6 h-6 bg-white bg-opacity-15 rounded-full top-40 right-32 animate-bounce"
+          className="absolute w-5 h-5 bg-white bg-opacity-15 rounded-full top-32 right-24 animate-bounce"
           style={{ animationDelay: "3s" }}
         ></div>
         <div
-          className="absolute w-4 h-4 bg-white bg-opacity-25 rounded-full top-60 left-1/4 animate-bounce"
+          className="absolute w-3 h-3 bg-white bg-opacity-25 rounded-full top-48 left-1/4 animate-bounce"
           style={{ animationDelay: "5s" }}
         ></div>
         <div
-          className="absolute w-10 h-10 bg-white bg-opacity-10 rounded-full bottom-40 right-20 animate-bounce"
+          className="absolute w-8 h-8 bg-white bg-opacity-10 rounded-full bottom-32 right-16 animate-bounce"
           style={{ animationDelay: "7s" }}
         ></div>
         <div
-          className="absolute w-5 h-5 bg-white bg-opacity-20 rounded-full bottom-60 left-1/3 animate-bounce"
+          className="absolute w-4 h-4 bg-white bg-opacity-20 rounded-full bottom-48 left-1/3 animate-bounce"
           style={{ animationDelay: "2s" }}
         ></div>
         <div
-          className="absolute w-7 h-7 bg-white bg-opacity-15 rounded-full top-1/3 right-1/4 animate-bounce"
+          className="absolute w-5 h-5 bg-white bg-opacity-15 rounded-full top-1/3 right-1/4 animate-bounce"
           style={{ animationDelay: "4s" }}
         ></div>
         <div
-          className="absolute w-3 h-3 bg-white bg-opacity-30 rounded-full top-1/2 left-16 animate-bounce"
+          className="absolute w-2.5 h-2.5 bg-white bg-opacity-30 rounded-full top-1/2 left-12 animate-bounce"
           style={{ animationDelay: "6s" }}
         ></div>
       </div>
 
       {/* Main content */}
-      <div className="relative z-10 flex items-center justify-center min-h-screen p-4 mt-10">
-        <div className="w-full max-w-md">
+      <div className="relative z-10 flex items-center justify-center min-h-screen p-4 sm:p-6 mt-8">
+        <div className="w-full max-w-sm">
           {/* Login card */}
-          {/* Login card */}
-          {/* <div className="bg-white bg-opacity-90 backdrop-blur-lg rounded-3xl border border-gray-200 border-opacity-50 p-8 shadow-2xl">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-light text-gray-800 mb-2">
-                Welcome Back
-              </h1>
-              <p className="text-gray-600 text-lg">
-                Enter your credentials to access your dashboard
-              </p>
-            </div>
-
-            {error && (
-              <div className="mb-6 p-4 bg-red-500 bg-opacity-20 text-red-800 rounded-2xl text-sm border border-red-400 border-opacity-50">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-2">
-                <label
-                  htmlFor="member_id"
-                  className="block text-gray-700 text-lg font-medium"
-                >
-                  Member ID
-                </label>
-                <input
-                  id="member_id"
-                  type="text"
-                  value={credentials.member_id}
-                  onChange={(e) =>
-                    setCredentials({
-                      ...credentials,
-                      member_id: e.target.value,
-                    })
-                  }
-                  placeholder="Enter your member ID"
-                  required
-                  className="w-full px-6 py-4 bg-white bg-opacity-100 border border-gray-300 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="password"
-                  className="block text-gray-700 text-lg font-medium"
-                >
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={credentials.password}
-                  onChange={(e) =>
-                    setCredentials({ ...credentials, password: e.target.value })
-                  }
-                  placeholder="Enter your password"
-                  required
-                  className="w-full px-6 py-4 bg-white bg-opacity-100 border border-gray-300 rounded-2xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-300 text-lg shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
-              >
-                Login to Dashboard
-              </button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <a
-                href="#"
-                className="text-gray-600 hover:text-gray-800 text-sm hover:underline transition-all duration-300"
-              >
-                Forgot Password?
-              </a>
-            </div>
-          </div> */}
-          {/* Login card */}
-          <div className="bg-gradient-to-br from-white to-gray-50 rounded-3xl border border-gray-100 p-8 shadow-2xl shadow-blue-500/20">
-            {/* Logo inside card */}
-            {/* <div className="flex items-center justify-center mb-6">
-              <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-xl">PN</span>
-              </div>
-              <span className="ml-3 text-xl font-bold text-gray-800">
-                Prime Next
-              </span>
-            </div> */}
-            <div className="flex items-center justify-center mb-8 space-x-3">
+          <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-100 p-6 shadow-xl shadow-blue-500/20">
+            <div className="flex items-center justify-center mb-6 space-x-2">
               <div className="relative">
-                <div className="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-2xl">PN</span>
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center shadow-md">
+                  <span className="text-white font-bold text-xl">PN</span>
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-400 rounded-full border-2 border-white"></div>
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-400 rounded-full border-2 border-white"></div>
               </div>
               <div>
-                <span className="block text-2xl font-bold text-gray-800 leading-tight">
+                <span className="block text-xl font-bold text-gray-800 leading-tight">
                   Prime Next
                 </span>
-                <span className="block text-base text-blue-600 font-medium tracking-widest">
+                <span className="block text-sm text-blue-600 font-medium tracking-wider">
                   Earn, Grow, Lead
                 </span>
               </div>
             </div>
 
             {error && (
-              <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100">
+              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-xs border border-red-100">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-3">
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
                 <label
                   htmlFor="member_id"
-                  className="block text-sm font-medium text-gray-700 uppercase tracking-wider"
+                  className="block text-xs font-medium text-gray-700 uppercase tracking-wider"
                 >
                   Member ID
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg
-                      className="h-5 w-5 text-gray-400"
+                      className="h-4 w-4 text-gray-400"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -285,22 +186,22 @@ const Login = () => {
                     }
                     placeholder="Enter your member ID"
                     required
-                    className="w-full pl-10 pr-6 py-3 bg-white border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200"
+                    className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition-all duration-200"
                   />
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 uppercase tracking-wider"
+                  className="block text-xs font-medium text-gray-700 uppercase tracking-wider"
                 >
                   Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg
-                      className="h-5 w-5 text-gray-400"
+                      className="h-4 w-4 text-gray-400"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -325,7 +226,7 @@ const Login = () => {
                     }
                     placeholder="Enter your password"
                     required
-                    className="w-full pl-10 pr-6 py-3 bg-white border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all duration-200"
+                    className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base transition-all duration-200"
                   />
                 </div>
               </div>
@@ -336,17 +237,17 @@ const Login = () => {
                     id="remember-me"
                     name="remember-me"
                     type="checkbox"
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <label
                     htmlFor="remember-me"
-                    className="ml-2 block text-sm text-gray-700"
+                    className="ml-2 block text-xs text-gray-700"
                   >
                     Remember me
                   </label>
                 </div>
 
-                <div className="text-sm">
+                <div className="text-xs">
                   <a
                     href="#"
                     className="font-medium text-blue-600 hover:text-blue-500"
@@ -358,11 +259,11 @@ const Login = () => {
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 text-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0"
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-300 text-base shadow-md hover:shadow-md transform hover:-translate-y-0.5 active:translate-y-0"
               >
                 Login to Dashboard
                 <svg
-                  className="w-5 h-5 ml-2 inline"
+                  className="w-4 h-4 ml-2 inline"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -378,22 +279,22 @@ const Login = () => {
               </button>
             </form>
 
-            <div className="mt-6">
+            <div className="mt-4">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-200"></div>
                 </div>
-                <div className="relative flex justify-center text-sm">
+                <div className="relative flex justify-center text-xs">
                   <span className="px-2 bg-white text-gray-500">
                     New to Prime Networks?
                   </span>
                 </div>
               </div>
 
-              <div className="mt-4">
+              <div className="mt-3">
                 <button
                   type="button"
-                  className="w-full bg-white border border-gray-200 text-gray-700 font-medium py-3 px-6 rounded-xl hover:bg-gray-50 transition-all duration-300 text-lg shadow-sm hover:shadow-md"
+                  className="w-full bg-white border border-gray-200 text-gray-700 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-50 transition-all duration-300 text-base shadow-sm hover:shadow-sm"
                 >
                   Create an account
                 </button>

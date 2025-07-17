@@ -22,8 +22,9 @@ import WalletTransfer from "./pages/3.Top-Up/WalletTransfer";
 import SelfPurchase from "./pages/4.Purchase/SelfPurchase";
 import SelfPurchaseReport from "./pages/4.Purchase/SelfPurchaseReport";
 
-import ProfitSharingIncome from "./pages/6. Income/ProfitSharingIncome";
+import MatchingIncome from "./pages/6. Income/MatchingIncome";
 import DirectIncome from "./pages/6. Income/DirectIncome";
+import ProfitSharingIncome from "./pages/6. Income/ProfitSharingIncome";
 import LevelIncome from "./pages/6. Income/LevelIncome";
 import LevelIncomeSummary from "./pages/6. Income/LevelIncomeSum";
 
@@ -74,11 +75,12 @@ const App = () => (
           /> */}
 
           {/* Income */}
+          <Route path="/income/matching-income" element={<MatchingIncome />} />
+          <Route path="/income/direct-income" element={<DirectIncome />} />
           <Route
             path="/income/profitsharing-income"
             element={<ProfitSharingIncome />}
           />
-          <Route path="/income/direct-income" element={<DirectIncome />} />
           <Route path="/income/level-income" element={<LevelIncome />} />
           <Route
             path="/income/level-income-summary"

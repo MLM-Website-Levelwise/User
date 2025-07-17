@@ -148,14 +148,19 @@ const menuItems: MenuItem[] = [
     icon: Briefcase,
     submenu: [
       {
-        title: "Profit Sharing Income",
+        title: "Matching Income",
         icon: UserCheck,
-        path: "/income/profitsharing-income",
+        path: "/income/matching-income",
       },
       {
         title: "Direct Income",
         icon: UserCheck,
         path: "/income/direct-income",
+      },
+      {
+        title: "Profit Sharing Income",
+        icon: UserCheck,
+        path: "/income/profitsharing-income",
       },
       {
         title: "Level Income",

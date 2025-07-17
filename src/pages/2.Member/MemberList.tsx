@@ -2,6 +2,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import React, { useState, useEffect, useMemo } from "react";
+
 import {
   Search,
   Filter,
@@ -167,8 +168,8 @@ const ViewMember = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <div className="bg-purple-900 text-white px-6 py-4 w-full text-center">
-        <h1 className="text-xl font-medium text-white">
+      <div className="bg-purple-900 text-white px-4 py-3 w-full text-center">
+        <h1 className="text-lg md:text-xl font-medium text-white">
           {localStorage.getItem("memberId")
             ? "My Downline Members"
             : "View Members"}
@@ -176,7 +177,7 @@ const ViewMember = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-sm">
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-4 md:p-6 border-b border-gray-200">
           {/* Top Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div className="relative w-full sm:max-w-xs">
@@ -184,15 +185,17 @@ const ViewMember = () => {
               <input
                 type="text"
                 placeholder="Search members..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm md:text-base"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
+
+            {/* Changed to justify-start on mobile */}
+            <div className="flex flex-wrap justify-start sm:justify-end gap-2">
               <button
-                onClick={() => handleAction("Add", {})}
-                className="bg-green-600 hover:bg-green-700 text-white p-2 rounded flex items-center gap-1"
+                onClick={() => navigate("/member/add-member")}
+                className="bg-green-600 hover:bg-green-700 text-white p-2 rounded flex items-center gap-1 text-xs md:text-sm"
                 title="Add Member"
               >
                 <Plus size={16} />
@@ -200,7 +203,7 @@ const ViewMember = () => {
               </button>
               <button
                 onClick={() => handleExport("excel")}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded flex items-center gap-1"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded flex items-center gap-1 text-xs md:text-sm"
                 title="Export to Excel"
               >
                 <FileText size={16} />
@@ -208,7 +211,7 @@ const ViewMember = () => {
               </button>
               <button
                 onClick={() => handleExport("pdf")}
-                className="bg-red-600 hover:bg-red-700 text-white p-2 rounded flex items-center gap-1"
+                className="bg-red-600 hover:bg-red-700 text-white p-2 rounded flex items-center gap-1 text-xs md:text-sm"
                 title="Export to PDF"
               >
                 <Download size={16} />
@@ -216,38 +219,38 @@ const ViewMember = () => {
               </button>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-xs md:text-sm"
               >
                 <Filter className="w-4 h-4" />
-                Filter
+                <span>Filter</span>
               </button>
             </div>
           </div>
 
           {/* Items per page */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Show</span>
+          <div className="flex items-center gap-2 text-xs md:text-sm">
+            <span className="text-gray-600">Show</span>
             <select
               value={itemsPerPage}
               onChange={(e) => {
                 setItemsPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm"
+              className="border border-gray-300 rounded px-2 py-1"
             >
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
             </select>
-            <span className="text-sm text-gray-600">entries</span>
+            <span className="text-gray-600">entries</span>
           </div>
 
           {/* Filters Panel */}
           {showFilters && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="mt-4 p-3 md:p-4 bg-gray-50 rounded-lg border">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
                     Date From
                   </label>
                   <input
@@ -256,11 +259,11 @@ const ViewMember = () => {
                     onChange={(e) =>
                       handleFilterChange("dateFrom", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-2 py-1 md:px-3 md:py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs md:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
                     Date To
                   </label>
                   <input
@@ -269,11 +272,11 @@ const ViewMember = () => {
                     onChange={(e) =>
                       handleFilterChange("dateTo", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-2 py-1 md:px-3 md:py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs md:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
                     Package
                   </label>
                   <select
@@ -281,17 +284,17 @@ const ViewMember = () => {
                     onChange={(e) =>
                       handleFilterChange("package", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-2 py-1 md:px-3 md:py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs md:text-sm"
                   >
-                    <option value="">All Packages</option>
+                    {/* <option value="">All Packages</option>
                     <option value="Basic">Basic</option>
                     <option value="Silver">Silver</option>
                     <option value="Gold">Gold</option>
-                    <option value="Premium">Premium</option>
+                    <option value="Premium">Premium</option> */}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
                     Member Code
                   </label>
                   <input
@@ -301,11 +304,11 @@ const ViewMember = () => {
                       handleFilterChange("memberCode", e.target.value)
                     }
                     placeholder="Enter member code"
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-2 py-1 md:px-3 md:py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs md:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
                     Status
                   </label>
                   <select
@@ -313,18 +316,35 @@ const ViewMember = () => {
                     onChange={(e) =>
                       handleFilterChange("activeStatus", e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-2 py-1 md:px-3 md:py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs md:text-sm"
                   >
                     <option value="">All Status</option>
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1">
+                    Position
+                  </label>
+                  <select
+                    value={filters.position}
+                    onChange={(e) =>
+                      handleFilterChange("position", e.target.value)
+                    }
+                    className="w-full px-2 py-1 md:px-3 md:py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs md:text-sm"
+                  >
+                    <option value="">All Positions</option>
+                    <option value="Left">Left</option>
+                    <option value="Right">Right</option>
+                  </select>
+                </div>
               </div>
-              <div className="mt-4">
+
+              <div className="mt-3 md:mt-4">
                 <button
                   onClick={clearFilters}
-                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                  className="bg-gray-600 text-white px-3 py-1 md:px-4 md:py-2 rounded-lg hover:bg-gray-700 text-xs md:text-sm"
                 >
                   Clear Filters
                 </button>
@@ -333,111 +353,155 @@ const ViewMember = () => {
           )}
         </div>
 
-        {/* Updated Table Design */}
+        {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-purple-700 text-white">
-              <tr>
-                <th className="sticky left-0 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Sl No.</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">DOJ</th>
-                <th className="sticky left-12 px-3 py-2 text-left text-xs sm:text-sm font-medium bg-purple-700">Member ID</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Name</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Sponsor Code</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Sponsor Name</th>
-                <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Position</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Date</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium">Topup Amount</th>
-                <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Package</th>
-                <th className="px-3 py-2 text-center text-xs sm:text-sm font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedMembers.length === 0 ? (
+          <div className="min-w-[1000px] md:w-full">
+            <table className="w-full">
+              <thead className="bg-purple-700 text-white">
                 <tr>
-                  <td colSpan={10} className="px-4 py-4 text-center text-gray-500 text-sm">
-                    No members found
-                  </td>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Sl No.
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    DOJ
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Member ID
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Name
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Sponsor Code
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Sponsor Name
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Position
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Topup Date
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Topup Amount
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    P.V.
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Package
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs md:text-sm font-medium">
+                    Status
+                  </th>
                 </tr>
-              ) : (
-                paginatedMembers.map((member, index) => (
-                  <tr key={member.id} className="border-b border-gray-200 hover:bg-gray-50">
-                    {/* Sticky columns */}
-                    <td className="sticky left-0 px-3 py-3 text-xs sm:text-sm text-gray-900 bg-white">
-                      {startIndex + index + 1}
-                    </td>
-                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
-                    </td>
-                    <td className="sticky left-12 px-3 py-3 text-xs sm:text-sm text-blue-600 font-medium bg-white">
-                      {member.member_id}
-                    </td>
-                    
-                    {/* Regular columns */}
-                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {member.name}
-                    </td>
-                    <td className="px-3 py-3 text-xs sm:text-sm text-blue-600">
-                      {member.sponsor_code}
-                    </td>
-                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {member.sponsor_name}
-                    </td>
-                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {member.position}
-                    </td>
-                    
-                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      {member.topup_date
-                        ? new Date(member.topup_date).toLocaleDateString("en-GB")
-                        : "N/A"}
-                    </td>
-                    <td className="px-3 py-3 text-xs sm:text-sm text-gray-900">
-                      ${member.topup_amount || "0"}
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        member.package === "Premium" ? "bg-purple-100 text-purple-800" :
-                        member.package === "Gold" ? "bg-yellow-100 text-yellow-800" :
-                        member.package === "Silver" ? "bg-gray-100 text-gray-800" : 
-                        "bg-blue-100 text-blue-800"
-                      }`}>
-                        {member.package}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        member.active_status ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                      }`}>
-                        {member.active_status ? "Active" : "Inactive"}
-                      </span>
+              </thead>
+              <tbody>
+                {paginatedMembers.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={11}
+                      className="px-4 py-6 text-center text-gray-500 text-xs md:text-sm"
+                    >
+                      No members found
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  paginatedMembers.map((member, index) => (
+                    <tr
+                      key={member.id}
+                      className="border-b border-gray-200 hover:bg-gray-50 h-14"
+                    >
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900 bg-white">
+                        {startIndex + index + 1}
+                      </td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
+                        {new Date(member.date_of_joining).toLocaleDateString(
+                          "en-GB"
+                        )}
+                      </td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-blue-600 font-medium bg-white">
+                        {member.member_id}
+                      </td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
+                        {member.name}
+                      </td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
+                        {member.sponsor_code}
+                      </td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
+                        {member.sponsor_name}
+                      </td>
+                      <td className="px-3 py-4 text-center">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            member.position === "Left"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {member.position}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
+                        {member.topup_date
+                          ? new Date(member.topup_date).toLocaleDateString(
+                              "en-GB"
+                            )
+                          : "N/A"}
+                      </td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
+                        ${member.topup_amount || "0"}
+                      </td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900"></td>
+                      <td className="px-3 py-4 text-xs md:text-sm whitespace-nowrap text-gray-900">
+                        {member.package}
+                      </td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
+                        <span
+                          className={`px-1 py-0.5 md:px-2 md:py-1 rounded-full text-xxs md:text-xs ${
+                            member.active_status
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {member.active_status ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Pagination */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
+        <div className="px-4 py-3 md:px-6 md:py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-xs md:text-sm text-gray-600">
             Showing {startIndex + 1} to{" "}
             {Math.min(startIndex + itemsPerPage, filteredMembers.length)} of{" "}
             {filteredMembers.length} entries
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-1 md:gap-2">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="px-2 py-1 md:px-3 md:py-1 border border-gray-300 rounded text-xs md:text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               Previous
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              if (totalPages <= 5) return i + 1;
+              if (currentPage <= 3) return i + 1;
+              if (currentPage >= totalPages - 2) return totalPages - 4 + i;
+              return currentPage - 2 + i;
+            }).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 border rounded text-sm ${
+                className={`px-2 py-1 md:px-3 md:py-1 border rounded text-xs md:text-sm ${
                   currentPage === page
                     ? "bg-blue-600 text-white border-blue-600"
                     : "border-gray-300 hover:bg-gray-50"
@@ -446,12 +510,27 @@ const ViewMember = () => {
                 {page}
               </button>
             ))}
+            {totalPages > 5 && currentPage < totalPages - 2 && (
+              <span className="px-2 py-1">...</span>
+            )}
+            {totalPages > 5 && currentPage < totalPages - 2 && (
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                className={`px-2 py-1 md:px-3 md:py-1 border rounded text-xs md:text-sm ${
+                  currentPage === totalPages
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {totalPages}
+              </button>
+            )}
             <button
               onClick={() =>
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))
               }
               disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="px-2 py-1 md:px-3 md:py-1 border border-gray-300 rounded text-xs md:text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               Next
             </button>
@@ -467,9 +546,9 @@ const MemberList = () => {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gray-50">
         <AppSidebar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-x-hidden">
           <DashboardHeader />
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-2 md:p-3 overflow-x-hidden">
             <ViewMember />
           </main>
         </div>

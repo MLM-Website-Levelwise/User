@@ -7,11 +7,14 @@ import axios from "axios";
 interface IncomeRecord {
   date: string;
   memberId: string;
-  leftPV?: number;  // Changed from leftCount to match API
-  rightPV?: number; // Changed from rightCount to match API
+  currLeft: number;    // Changed from leftPV
+  currRight: number;   // Changed from rightPV
+  prevLeft: number;
+  prevRight: number;
   matches: number;
   income: number;
   matchingPV: number;
+  type?: string;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -27,36 +30,56 @@ const MatchingIncomePage = () => {
     fetchIncomeData();
   }, []);
 
-  const fetchIncomeData = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
-      const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_BASE_URL}/matching-income`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      console.log("Full API response:", response.data);
-      
-      if (response.data.success) {
-        // Ensure we always set an array, even if data is undefined
-        setIncomeData(response.data.data || []);
-        
-        if (!response.data.data || response.data.data.length === 0) {
-          setError(`No matching income calculated. 
-            Your team PV: Left=${response.data.debug?.leftPV || 0}, 
-            Right=${response.data.debug?.rightPV || 0}`);
-        }
-      } else {
-        setError(response.data.error || "Failed to fetch matching income");
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || "Network error while fetching data");
-      console.error("API Error:", err);
-    } finally {
-      setIsLoading(false);
-    }
+  interface ApiResponse {
+  success: boolean;
+  data?: {
+    records: IncomeRecord[];
+    totalIncome: number;
+    summary: {
+      totalLeft: number;
+      totalRight: number;
+      totalMatches: number;
+    };
   };
+  debug?: {
+    leftPV: number;
+    rightPV: number;
+    [key: string]: any;
+  };
+  error?: string;
+}
+
+// Update the fetchIncomeData function
+const fetchIncomeData = async () => {
+  try {
+    setIsLoading(true);
+    setError("");
+    const token = localStorage.getItem("token");
+    const response = await axios.get<ApiResponse>(`${API_BASE_URL}/matching-income`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    console.log("Full API response:", response.data);
+    
+    if (response.data.success) {
+      // Access the records array from data.records
+      setIncomeData(response.data.data?.records || []);
+      
+      if (!response.data.data?.records || response.data.data.records.length === 0) {
+        setError(`No matching income calculated. 
+          Your team PV: Left=${response.data.debug?.leftPV || 0}, 
+          Right=${response.data.debug?.rightPV || 0}`);
+      }
+    } else {
+      setError(response.data.error || "Failed to fetch matching income");
+    }
+  } catch (err) {
+    setError(err.response?.data?.error || "Network error while fetching data");
+    console.error("API Error:", err);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleFilter = async () => {
     try {
@@ -91,17 +114,19 @@ const MatchingIncomePage = () => {
 
   // Transform data for table display with null checks
   const tableData = incomeData.map((record, index) => ({
-    slNo: index + 1,
-    date: record.date || '-',
-    prevLeft: 0,
-    prevRight: 0,
-    currentLeft: record.leftPV || 0,
-    currentRight: record.rightPV || 0,
-    totalLeft: record.leftPV || 0,
-    totalRight: record.rightPV || 0,
-    matchingPV: record.matchingPV || 0,
-    income: record.income || 0
-  }));
+  slNo: index + 1,
+  date: record.date || '-',
+  prevLeft: record.prevLeft || 0,
+  prevRight: record.prevRight || 0,
+  currentLeft: record.currLeft || 0,
+  currentRight: record.currRight || 0,
+  totalLeft: (record.prevLeft || 0) + (record.currLeft || 0),
+  totalRight: (record.prevRight || 0) + (record.currRight || 0),
+  matchingPV: record.matchingPV || 0,
+  income: record.income || 0,
+  matchType: record.type || '1:1' // Added match type
+}));
+
 
   return (
     <SidebarProvider>
@@ -171,15 +196,20 @@ const MatchingIncomePage = () => {
               <div className="overflow-x-auto">
                 <table className="w-full border-separate border-spacing-0">
                   <thead>
-                    <tr className="bg-blue-700 text-white">
-                      <th className="p-3 text-left text-sm font-medium">Sl No</th>
-                      <th className="p-3 text-left text-sm font-medium">Date</th>
-                      <th className="p-3 text-left text-sm font-medium">Left PV</th>
-                      <th className="p-3 text-left text-sm font-medium">Right PV</th>
-                      <th className="p-3 text-left text-sm font-medium">Matching PV</th>
-                      <th className="p-3 text-left text-sm font-medium">Income ($)</th>
-                    </tr>
-                  </thead>
+  <tr className="bg-blue-700 text-white">
+    <th className="p-3 text-left text-sm font-medium">Sl No</th>
+    <th className="p-3 text-left text-sm font-medium">Date</th>
+    <th className="p-3 text-left text-sm font-medium">Prev Left</th>
+    <th className="p-3 text-left text-sm font-medium">Prev Right</th>
+    <th className="p-3 text-left text-sm font-medium">Curr Left</th>
+    <th className="p-3 text-left text-sm font-medium">Curr Right</th>
+    <th className="p-3 text-left text-sm font-medium">Total Left</th>
+    <th className="p-3 text-left text-sm font-medium">Total Right</th>
+    <th className="p-3 text-left text-sm font-medium">Match Type</th>
+    <th className="p-3 text-left text-sm font-medium">Matching PV</th>
+    <th className="p-3 text-left text-sm font-medium">Income ($)</th>
+  </tr>
+</thead>
                   <tbody>
                     {isLoading ? (
                       <tr>
@@ -191,25 +221,37 @@ const MatchingIncomePage = () => {
                       </tr>
                     ) : tableData.length > 0 ? (
                       tableData.map((item, index) => (
-                        <tr
-                          key={index}
-                          className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}
-                        >
-                          <td className="p-3 text-sm border-b border-gray-200">{item.slNo}</td>
-                          <td className="p-3 text-sm border-b border-gray-200">{item.date}</td>
-                          <td className="p-3 text-sm border-b border-gray-200">
-                            {item.currentLeft?.toLocaleString() || '0'}
-                          </td>
-                          <td className="p-3 text-sm border-b border-gray-200">
-                            {item.currentRight?.toLocaleString() || '0'}
-                          </td>
-                          <td className="p-3 text-sm font-semibold text-green-600 border-b border-gray-200">
-                            {item.matchingPV?.toLocaleString() || '0'}
-                          </td>
-                          <td className="p-3 text-sm font-semibold text-blue-600 border-b border-gray-200">
-                            ${item.income?.toLocaleString() || '0'}
-                          </td>
-                        </tr>
+                       <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+    <td className="p-3 text-sm border-b border-gray-200">{item.slNo}</td>
+    <td className="p-3 text-sm border-b border-gray-200">{item.date}</td>
+    <td className="p-3 text-sm border-b border-gray-200">
+      {item.prevLeft?.toLocaleString() || '0'}
+    </td>
+    <td className="p-3 text-sm border-b border-gray-200">
+      {item.prevRight?.toLocaleString() || '0'}
+    </td>
+    <td className="p-3 text-sm border-b border-gray-200">
+      {item.currentLeft?.toLocaleString() || '0'}
+    </td>
+    <td className="p-3 text-sm border-b border-gray-200">
+      {item.currentRight?.toLocaleString() || '0'}
+    </td>
+    <td className="p-3 text-sm border-b border-gray-200">
+      {item.totalLeft?.toLocaleString() || '0'}
+    </td>
+    <td className="p-3 text-sm border-b border-gray-200">
+      {item.totalRight?.toLocaleString() || '0'}
+    </td>
+    <td className="p-3 text-sm border-b border-gray-200">
+      {item.matchType}
+    </td>
+    <td className="p-3 text-sm font-semibold text-green-600 border-b border-gray-200">
+      {item.matchingPV?.toLocaleString() || '0'}
+    </td>
+    <td className="p-3 text-sm font-semibold text-blue-600 border-b border-gray-200">
+      ${item.income?.toLocaleString() || '0'}
+    </td>
+  </tr>
                       ))
                     ) : (
                       <tr>

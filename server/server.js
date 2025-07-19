@@ -741,103 +741,191 @@ app.get('/team-structure', authenticateToken, async (req, res) => {
 app.get('/matching-income', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.member_id;
-    const API_BASE_URL = process.env.URL;
+    const { root_id } = req.query;
+    const calculationRootId = root_id || userId;
 
-    // 1. Get ALL packages first
-    const { data: allPackages, error: packagesError } = await supabase
-      .from('packages')
-      .select('*');
-    
+    const { data: allPackages, error: packagesError } = await supabase.from('packages').select('*');
     if (packagesError) throw packagesError;
 
-    // 2. Find growth packages (plan_name = 'Growth Package')
     const growthPackages = allPackages.filter(pkg => pkg.plan_name === 'Growth Package');
     const growthPackageNames = growthPackages.map(p => p.name);
+    const defaultMatchingValue = growthPackages[0]?.matching_value || 5;
 
-    // 3. Get team structure
-    const teamResponse = await axios.get(`${API_BASE_URL}/team-structure?root_id=${userId}`, {
-      headers: { Authorization: req.headers.authorization }
+    const { data: allMembers, error: membersError } = await supabase.from('members').select('*');
+    if (membersError) throw membersError;
+
+    const memberMap = new Map();
+    allMembers.forEach(member => {
+      memberMap.set(member.member_id, {
+        ...member,
+        left: null,
+        right: null,
+        level: member.member_id === calculationRootId ? 0 : -1
+      });
     });
-    const userTree = teamResponse.data;
 
-    // 4. Counting function - only requires growth package for downline members
-    const countLeg = async (node, side) => {
-      if (!node) return 0;
-      
-      // Get member's package info
-      const { data: memberData, error: memberError } = await supabase
-        .from('members')
-        .select('package, active_status')
-        .eq('member_id', node.member_id)
-        .single();
-
-      if (memberError) throw memberError;
-
-      // For root user (the one requesting), only check active status
-      // For all others, check both active status AND growth package
-      const isRootUser = node.member_id === userId;
-      const isValid = memberData.active_status && 
-                     (isRootUser || growthPackageNames.includes(memberData.package));
-      
-      let count = isValid ? 1 : 0;
-      
-      // Count children on the specified side
-      if (node.children) {
-        const sideChild = node.children.find(c => c.position === side);
-        if (sideChild) count += await countLeg(sideChild, side);
+    allMembers.forEach(member => {
+      if (member.sponsor_code && memberMap.has(member.sponsor_code)) {
+        const sponsor = memberMap.get(member.sponsor_code);
+        const node = memberMap.get(member.member_id);
+        node.level = sponsor.level + 1;
+        if (member.position === 'Left') {
+          if (!sponsor.left) sponsor.left = node;
+          else {
+            let lastLeft = sponsor.left;
+            while (lastLeft.left) lastLeft = lastLeft.left;
+            lastLeft.left = node;
+          }
+        } else if (member.position === 'Right') {
+          if (!sponsor.right) sponsor.right = node;
+          else {
+            let lastRight = sponsor.right;
+            while (lastRight.right) lastRight = lastRight.right;
+            lastRight.right = node;
+          }
+        }
       }
-      
+    });
+
+    const calculationRoot = memberMap.get(calculationRootId);
+    if (!calculationRoot) return res.status(404).json({ success: false, error: 'Specified root member not found' });
+
+    const countValidMembers = (node) => {
+      if (!node) return 0;
+      const isValid = node.active_status && (node.member_id === calculationRootId || growthPackageNames.includes(node.package));
+      let count = isValid ? 1 : 0;
+      if (node.left) count += countValidMembers(node.left);
+      if (node.right) count += countValidMembers(node.right);
       return count;
     };
 
-    // 5. Calculate counts
-    const leftCount = userTree.children 
-      ? await countLeg(userTree.children.find(c => c.position === 'Left'), 'Left')
-      : 0;
-      
-    const rightCount = userTree.children
-      ? await countLeg(userTree.children.find(c => c.position === 'Right'), 'Right')
-      : 0;
+    let leftCount = calculationRoot.left ? countValidMembers(calculationRoot.left) : 0;
+    let rightCount = calculationRoot.right ? countValidMembers(calculationRoot.right) : 0;
 
-    // 6. Get default matching value (from first growth package)
-    const defaultMatchingValue = growthPackages[0]?.matching_value || 5;
+    let incomeRecords = [];
+    let totalIncome = 0, totalMatches = 0;
+    let matches2v1 = 0, matches1v2 = 0, matches1v1 = 0;
 
-    // 7. Income calculation
-    const incomeRecords = [];
-    if (leftCount > 0 && rightCount > 0) {
-      const matches = Math.min(leftCount, rightCount);
+    let totalLeftRunning = leftCount;
+    let totalRightRunning = rightCount;
+
+    // 2:1 matches
+    while (leftCount >= 2 && rightCount >= 1) {
+      let prevLeft = totalLeftRunning;
+      let prevRight = totalRightRunning;
+
+      leftCount -= 2;
+      rightCount -= 1;
+      totalLeftRunning -= 2;
+      totalRightRunning -= 1;
+
       incomeRecords.push({
         date: new Date().toISOString().split('T')[0],
-        memberId: userId,
-        leftCount: leftCount,
-        rightCount: rightCount,
-        matches,
-        income: defaultMatchingValue,
+        memberId: calculationRootId,
+        prevLeft,
+        prevRight,
+        currLeft: 2,
+        currRight: 1,
+        totalLeft: totalLeftRunning,
+        totalRight: totalRightRunning,
+        matches: 1,
+        type: '2:1',
         matchingPV: defaultMatchingValue,
-        matchingValueUsed: defaultMatchingValue
+        income: defaultMatchingValue
       });
+      totalIncome += defaultMatchingValue;
+      totalMatches += 1;
+      matches2v1++;
+    }
+
+    // 1:2 matches
+    while (leftCount >= 1 && rightCount >= 2) {
+      let prevLeft = totalLeftRunning;
+      let prevRight = totalRightRunning;
+
+      leftCount -= 1;
+      rightCount -= 2;
+      totalLeftRunning -= 1;
+      totalRightRunning -= 2;
+
+      incomeRecords.push({
+        date: new Date().toISOString().split('T')[0],
+        memberId: calculationRootId,
+        prevLeft,
+        prevRight,
+        currLeft: 1,
+        currRight: 2,
+        totalLeft: totalLeftRunning,
+        totalRight: totalRightRunning,
+        matches: 1,
+        type: '1:2',
+        matchingPV: defaultMatchingValue,
+        income: defaultMatchingValue
+      });
+      totalIncome += defaultMatchingValue;
+      totalMatches += 1;
+      matches1v2++;
+    }
+
+    // 1:1 matches
+    while (leftCount >= 1 && rightCount >= 1) {
+      let prevLeft = totalLeftRunning;
+      let prevRight = totalRightRunning;
+
+      leftCount -= 1;
+      rightCount -= 1;
+      totalLeftRunning -= 1;
+      totalRightRunning -= 1;
+
+      incomeRecords.push({
+        date: new Date().toISOString().split('T')[0],
+        memberId: calculationRootId,
+        prevLeft,
+        prevRight,
+        currLeft: 1,
+        currRight: 1,
+        totalLeft: totalLeftRunning,
+        totalRight: totalRightRunning,
+        matches: 1,
+        type: '1:1',
+        matchingPV: defaultMatchingValue,
+        income: defaultMatchingValue
+      });
+      totalIncome += defaultMatchingValue;
+      totalMatches += 1;
+      matches1v1++;
     }
 
     res.json({
       success: true,
-      data: incomeRecords,
+      data: {
+        records: incomeRecords,
+        totalIncome,
+        summary: {
+          totalLeft: totalLeftRunning,
+          totalRight: totalRightRunning,
+          totalMatches
+        }
+      },
       debug: {
-        leftCount,
-        rightCount,
-        growthPackageNames,
-        defaultMatchingValue
+        calculationRootId,
+        initialLeft: countValidMembers(calculationRoot.left),
+        initialRight: countValidMembers(calculationRoot.right),
+        matches2v1,
+        matches1v2,
+        matches1v1,
+        remainingLeft: totalLeftRunning,
+        remainingRight: totalRightRunning
       }
     });
 
   } catch (error) {
     console.error('Matching income error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Calculation failed',
-      details: error.message
-    });
+    res.status(500).json({ success: false, error: 'Calculation failed', details: error.message });
   }
 });
+
+
 
 
 // Add this new route to your backend

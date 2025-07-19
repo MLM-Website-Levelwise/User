@@ -24,7 +24,6 @@ interface Package {
   amount: number;
   description: string;
   type: "shopping" | "tour";
-  plan_name?: string; // Added to match API response
 }
 
 interface Invoice {
@@ -32,7 +31,7 @@ interface Invoice {
   memberName: string;
   memberId: string;
   topUpBy: string;
-  planType: "growth" | "profit-sharing" | string; // Allow other plan types
+  planType: "growth" | "profit-sharing";
   packageName?: string;
   amount: number;
   activationDate: string;
@@ -41,7 +40,7 @@ interface Invoice {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-type PlanType = "growth" | "profit-sharing" | string;
+type PlanType = "growth" | "profit-sharing";
 
 const MemberActivation = () => {
   const navigate = useNavigate();
@@ -54,8 +53,6 @@ const MemberActivation = () => {
   const [isFetchingMember, setIsFetchingMember] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [growthPackages, setGrowthPackages] = useState<Package[]>([]);
-  const [isLoadingPackages, setIsLoadingPackages] = useState<boolean>(false);
 
   // Current logged-in user data
   const memberDataString = localStorage.getItem("member");
@@ -65,48 +62,53 @@ const MemberActivation = () => {
     name: memberData.name || "Admin User",
   };
 
+  // Package data for Growth Plan
+  const growthPackages: Package[] = [
+    {
+      id: "PKG001",
+      name: "Shopping Wallet Package",
+      amount: 30.0,
+      description: "Basic shopping wallet package",
+      type: "shopping",
+    },
+    {
+      id: "PKG002",
+      name: "Tour Package",
+      amount: 45.0,
+      description: "Elite tour package",
+      type: "tour",
+    },
+  ];
+
   // Profit Sharing amount options (multiples of 75 up to 4500)
   const profitSharingAmounts = Array.from(
     { length: 60 },
     (_, i) => (i + 1) * 75
   );
 
-  // Fetch wallet balance and packages on component mount
+  // Fetch wallet balance on component mount
   useEffect(() => {
-    const fetchInitialData = async () => {
+    const fetchWalletBalance = async () => {
       try {
-        // Fetch wallet balance
         const member_id = currentUser.id;
         const token = localStorage.getItem("token");
-        const balanceResponse = await axios.get(
+        const response = await axios.get(
           `${API_BASE_URL}/member-wallet-balance`,
           {
             headers: { Authorization: `Bearer ${token}` },
             params: { member_id },
           }
         );
-        if (balanceResponse.data.success) {
-          setWalletBalance(balanceResponse.data.balance);
+        if (response.data.success) {
+          setWalletBalance(response.data.balance);
         }
-
-        // Fetch growth packages
-        setIsLoadingPackages(true);
-        const packagesResponse = await axios.get(
-          `${API_BASE_URL}/packages`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setGrowthPackages(packagesResponse.data);
       } catch (error) {
-        console.error("Failed to fetch initial data:", error);
-        toast.error("Failed to load initial data");
-      } finally {
-        setIsLoadingPackages(false);
+        console.error("Failed to fetch wallet balance:", error);
+        toast.error("Failed to load wallet balance");
       }
     };
 
-    fetchInitialData();
+    fetchWalletBalance();
   }, []);
 
   // Reset package when plan changes
@@ -185,9 +187,9 @@ const MemberActivation = () => {
         `${API_BASE_URL}/activate-member`,
         {
           memberId: memberId.toString(),
-          planType: selectedPlan === "growth" ? selectedPackage?.name : selectedPlan,
+          planType:
+            selectedPlan === "growth" ? selectedPackage?.name : selectedPlan,
           amount: activationAmount,
-          packageId: selectedPlan === "growth" ? selectedPackage?.id : null,
         },
         {
           headers: {
@@ -223,21 +225,6 @@ const MemberActivation = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Filter packages based on plan_name if available
-  const getFilteredPackages = () => {
-    if (!growthPackages.length) return [];
-    
-    // If packages have plan_name field, filter by selected plan
-    if (growthPackages[0].plan_name) {
-      return growthPackages.filter(pkg => 
-        selectedPlan ? pkg.plan_name === selectedPlan : true
-      );
-    }
-    
-    // Default to all packages if no plan_name field
-    return growthPackages;
   };
 
   return (
@@ -366,15 +353,19 @@ const MemberActivation = () => {
                               )}
                             </div>
                             <select
-  value={selectedPlan || ""}
-  onChange={(e) => setSelectedPlan(e.target.value as PlanType)}
-  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none"
-  disabled={isLoading}
->
-  <option value="">Select a plan</option>
-  <option value="Growth Package">Growth Package</option>
-  <option value="Profit Sharing Package">Profit Sharing Package</option>
-</select>
+                              value={selectedPlan || ""}
+                              onChange={(e) =>
+                                setSelectedPlan(e.target.value as PlanType)
+                              }
+                              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none"
+                              disabled={isLoading}
+                            >
+                              <option value="">Select a plan</option>
+                              <option value="growth">Growth Package</option>
+                              <option value="profit-sharing">
+                                Profit Sharing Package
+                              </option>
+                            </select>
                             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                               <ChevronDown className="w-5 h-5 text-gray-400" />
                             </div>
@@ -397,35 +388,40 @@ const MemberActivation = () => {
                         </div>
                       </div>
 
-                      {selectedPlan === "Growth Package" && (
-  <div className="space-y-1">
-    <label className="block text-sm font-medium text-gray-700">
-      Activation Package
-    </label>
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-        <PackageIcon className="w-5 h-5 text-gray-400" />
-      </div>
-      <select
-        value={selectedPackage?.name || ""}
-        onChange={(e) => {
-          const selectedPackageName = e.target.value;
-          const pkg = growthPackages.find(p => p.name === selectedPackageName) || null;
-          setSelectedPackage(pkg);
-        }}
-        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none"
-        disabled={isLoading || isLoadingPackages}
-      >
-        <option value="">Select a package</option>
-        <option value="Shopping Wallet Package">Shopping Wallet Package - $30.00</option>
-        <option value="Tour Package">Tour Package - $45.00</option>
-      </select>
-      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-        <ChevronDown className="w-5 h-5 text-gray-400" />
-      </div>
-    </div>
-  </div>
-)}
+                      {selectedPlan === "growth" && (
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Activation Package
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                              <PackageIcon className="w-5 h-5 text-gray-400" />
+                            </div>
+                            <select
+                              value={selectedPackage?.id || ""}
+                              onChange={(e) => {
+                                const pkg =
+                                  growthPackages.find(
+                                    (p) => p.id === e.target.value
+                                  ) || null;
+                                setSelectedPackage(pkg);
+                              }}
+                              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none"
+                              disabled={isLoading}
+                            >
+                              <option value="">Select a package</option>
+                              {growthPackages.map((pkg) => (
+                                <option key={pkg.id} value={pkg.id}>
+                                  {pkg.name} - ${pkg.amount.toFixed(2)}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                              <ChevronDown className="w-5 h-5 text-gray-400" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {selectedPlan === "profit-sharing" && (
                         <div className="space-y-1">
@@ -573,9 +569,7 @@ const MemberActivation = () => {
                               <span className="font-bold">
                                 {invoice.planType === "growth"
                                   ? "Growth Package"
-                                  : invoice.planType === "profit-sharing"
-                                  ? "Profit Sharing"
-                                  : invoice.planType}
+                                  : "Profit Sharing"}
                               </span>
                             </div>
                             {invoice.planType === "growth" &&

@@ -7,12 +7,13 @@ import axios from "axios";
 interface IncomeRecord {
   date: string;
   memberId: string;
-  leftCount: number;
-  rightCount: number;
+  leftPV?: number;  // Changed from leftCount to match API
+  rightPV?: number; // Changed from rightCount to match API
   matches: number;
   income: number;
   matchingPV: number;
 }
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const MatchingIncomePage = () => {
@@ -27,34 +28,35 @@ const MatchingIncomePage = () => {
   }, []);
 
   const fetchIncomeData = async () => {
-  try {
-    setIsLoading(true);
-    setError("");
-    const token = localStorage.getItem("token");
-    const response = await axios.get(`${API_BASE_URL}/matching-income`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    console.log("Full API response:", response.data); // Debug
-    
-    if (response.data.success) {
-      setIncomeData(response.data.data);
+    try {
+      setIsLoading(true);
+      setError("");
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API_BASE_URL}/matching-income`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       
-      if (response.data.data.length === 0) {
-        setError(`No matching income calculated. 
-          Your team PV: Left=${response.data.userPV?.left || 0}, 
-          Right=${response.data.userPV?.right || 0}`);
+      console.log("Full API response:", response.data);
+      
+      if (response.data.success) {
+        // Ensure we always set an array, even if data is undefined
+        setIncomeData(response.data.data || []);
+        
+        if (!response.data.data || response.data.data.length === 0) {
+          setError(`No matching income calculated. 
+            Your team PV: Left=${response.data.debug?.leftPV || 0}, 
+            Right=${response.data.debug?.rightPV || 0}`);
+        }
+      } else {
+        setError(response.data.error || "Failed to fetch matching income");
       }
-    } else {
-      setError(response.data.error || "Failed to fetch matching income");
+    } catch (err) {
+      setError(err.response?.data?.error || "Network error while fetching data");
+      console.error("API Error:", err);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (err) {
-    setError(err.response?.data?.error || "Network error while fetching data");
-    console.error("API Error:", err);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleFilter = async () => {
     try {
@@ -66,12 +68,12 @@ const MatchingIncomePage = () => {
       if (fromDate) params.append('fromDate', fromDate);
       if (toDate) params.append('toDate', toDate);
       
-      const response = await axios.get(`/matching-income?${params.toString()}`, {
+      const response = await axios.get(`${API_BASE_URL}/matching-income?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       if (response.data.success) {
-        setIncomeData(response.data.data);
+        setIncomeData(response.data.data || []);
       }
     } catch (err) {
       setError("Failed to filter income data");
@@ -87,18 +89,18 @@ const MatchingIncomePage = () => {
     fetchIncomeData();
   };
 
-  // Transform data for table display
+  // Transform data for table display with null checks
   const tableData = incomeData.map((record, index) => ({
     slNo: index + 1,
-    date: record.date,
-    prevLeft: 0, // Not tracked in this implementation
+    date: record.date || '-',
+    prevLeft: 0,
     prevRight: 0,
-    currentLeft: record.leftCount,
-    currentRight: record.rightCount,
-    totalLeft: record.leftCount,
-    totalRight: record.rightCount,
-    matchingPV: record.matchingPV,
-    income: record.income
+    currentLeft: record.leftPV || 0,
+    currentRight: record.rightPV || 0,
+    totalLeft: record.leftPV || 0,
+    totalRight: record.rightPV || 0,
+    matchingPV: record.matchingPV || 0,
+    income: record.income || 0
   }));
 
   return (
@@ -196,16 +198,16 @@ const MatchingIncomePage = () => {
                           <td className="p-3 text-sm border-b border-gray-200">{item.slNo}</td>
                           <td className="p-3 text-sm border-b border-gray-200">{item.date}</td>
                           <td className="p-3 text-sm border-b border-gray-200">
-                            {item.currentLeft.toLocaleString()}
+                            {item.currentLeft?.toLocaleString() || '0'}
                           </td>
                           <td className="p-3 text-sm border-b border-gray-200">
-                            {item.currentRight.toLocaleString()}
+                            {item.currentRight?.toLocaleString() || '0'}
                           </td>
                           <td className="p-3 text-sm font-semibold text-green-600 border-b border-gray-200">
-                            {item.matchingPV.toLocaleString()}
+                            {item.matchingPV?.toLocaleString() || '0'}
                           </td>
                           <td className="p-3 text-sm font-semibold text-blue-600 border-b border-gray-200">
-                            ${item.income.toLocaleString()}
+                            ${item.income?.toLocaleString() || '0'}
                           </td>
                         </tr>
                       ))

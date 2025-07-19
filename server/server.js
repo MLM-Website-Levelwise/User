@@ -809,8 +809,8 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
       incomeRecords.push({
         date: new Date().toISOString().split('T')[0],
         memberId: userId,
-        leftCount: leftCount * defaultMatchingValue,
-        rightCount: rightCount * defaultMatchingValue,
+        leftCount: leftCount,
+        rightCount: rightCount,
         matches,
         income: defaultMatchingValue,
         matchingPV: defaultMatchingValue,
@@ -1990,7 +1990,7 @@ app.get('/my-member', authenticateToken, async (req, res) => {
       // If logged in as member, get their member ID
       const { data: member, error } = await supabase
         .from('members')
-        .select('member_id')
+        .select('member_id, created_at')
         .eq('id', memberId)
         .single();
       
@@ -2010,7 +2010,7 @@ app.get('/my-member', authenticateToken, async (req, res) => {
       // Get direct referrals (only first level downline)
       const { data: directMembers, error } = await supabase
         .from('members')
-        .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, active_status, position')
+        .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, created_at, active_status, position')
         .eq('sponsor_code', sponsorId);
 
       if (error || !directMembers) return [];
@@ -2067,7 +2067,7 @@ app.get('/my-member', authenticateToken, async (req, res) => {
       // Admin gets all members with top-up data
       const { data: allMembers, error } = await supabase
         .from('members')
-        .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, active_status, position');
+        .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, created_at, active_status, position');
       
       if (error) throw error;
       
@@ -2106,9 +2106,14 @@ app.get('/my-member', authenticateToken, async (req, res) => {
       });
     }
 
-    // Sort all members strictly by date_of_joining in ascending order
+    // Sort all members by date_of_joining and then by created_at timestamp
     members.sort((a, b) => {
-      return new Date(a.date_of_joining) - new Date(b.date_of_joining);
+      // First compare by date_of_joining
+      const dateDiff = new Date(a.date_of_joining) - new Date(b.date_of_joining);
+      if (dateDiff !== 0) return dateDiff;
+      
+      // If dates are equal, compare by created_at timestamp
+      return new Date(a.created_at) - new Date(b.created_at);
     });
 
     res.json({

@@ -561,6 +561,58 @@ app.get('/members', authenticateToken, async (req, res) => {
   }
 });
 
+// Add this endpoint to get ALL members (with special handling for PN1001)
+app.get('/all-membersi', async (req, res) => {
+  try {
+    // Special case: allow unauthenticated access only for PN1001 requests
+    const isPublicRequest = req.headers.authorization === 'PN1001';
+    
+    if (!isPublicRequest) {
+      return authenticateToken(req, res, async () => {
+        await fetchAllMembersi(res);
+      });
+    }
+
+    await fetchAllMembersi(res);
+  } catch (error) {
+    console.error('Get all members error:', error);
+    res.status(500).json({ error: 'Failed to fetch members' });
+  }
+});
+
+// Helper function to fetch all members with their topup data
+async function fetchAllMembersi(res) {
+  // Get all members
+  const { data: members, error: membersError } = await supabase
+    .from('members')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (membersError) throw membersError;
+
+  // For each member, get their topup data
+  const membersWithTopups = await Promise.all(
+    members.map(async (member) => {
+      const { data: topUpData, error: topUpError } = await supabase
+        .from('main_balance_transactions')
+        .select('transaction_date, amount')
+        .eq('activated_member_id', member.member_id)
+        .ilike('transaction_type', '%activation%')
+        .order('transaction_date', { ascending: false })
+        .limit(1);
+
+      if (topUpError) throw topUpError;
+
+      return {
+        ...member,
+        topup_date: topUpData?.[0]?.transaction_date || null,
+        topup_amount: topUpData?.[0]?.amount || null
+      };
+    })
+  );
+
+  res.json(membersWithTopups);
+}
 
 //Tree for member
 // New endpoint for team structure
@@ -1013,6 +1065,116 @@ for (const periodKey of allPeriods) {
 });
       
 
+//Tree for admin
+app.get('/binary-team-by-member/:memberId', async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    const { levels = 3 } = req.query;
+
+    // 1. First get the root member
+    const { data: rootMember, error: rootError } = await supabase
+      .from('members')
+      .select('*')
+      .eq('member_id', memberId)
+      .single();
+
+    if (rootError || !rootMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // 2. Get ALL members in the system (we'll filter later)
+    const { data: allMembers, error: membersError } = await supabase
+      .from('members')
+      .select('*');
+
+    if (membersError) throw membersError;
+
+    // 3. Create a map for quick lookup
+    const memberMap = new Map();
+    memberMap.set(memberId, { 
+      ...rootMember, 
+      left: null, 
+      right: null, 
+      level: 0
+    });
+
+    allMembers.forEach(member => {
+      if (member.member_id !== memberId) {
+        memberMap.set(member.member_id, {
+          ...member,
+          left: null,
+          right: null,
+          level: -1
+        });
+      }
+    });
+
+    // 4. Build the binary structure
+    allMembers.forEach(member => {
+      if (member.sponsor_code && memberMap.has(member.sponsor_code)) {
+        const sponsor = memberMap.get(member.sponsor_code);
+        
+        if (member.position === 'Left') {
+          if (!sponsor.left) {
+            sponsor.left = member.member_id;
+            member.level = sponsor.level + 1;
+          } else {
+            // Find the last left in chain
+            let lastLeft = sponsor.left;
+            while (memberMap.get(lastLeft)?.left) {
+              lastLeft = memberMap.get(lastLeft).left;
+            }
+            memberMap.get(lastLeft).left = member.member_id;
+            member.level = memberMap.get(lastLeft).level + 1;
+          }
+        } 
+        else if (member.position === 'Right') {
+          if (!sponsor.right) {
+            sponsor.right = member.member_id;
+            member.level = sponsor.level + 1;
+          } else {
+            // Find the last right in chain
+            let lastRight = sponsor.right;
+            while (memberMap.get(lastRight)?.right) {
+              lastRight = memberMap.get(lastRight).right;
+            }
+            memberMap.get(lastRight).right = member.member_id;
+            member.level = memberMap.get(lastRight).level + 1;
+          }
+        }
+      }
+    });
+
+    // 5. Recursive function to build the response tree
+    const buildTree = (currentId, currentLevel = 0) => {
+      if (currentLevel >= levels) return null;
+      
+      const member = memberMap.get(currentId);
+      if (!member) return null;
+      
+      const leftChild = buildTree(member.left, currentLevel + 1);
+      const rightChild = buildTree(member.right, currentLevel + 1);
+      
+      const children = [];
+      if (leftChild) children.push(leftChild);
+      if (rightChild) children.push(rightChild);
+      
+      return {
+        ...member,
+        children: children.length > 0 ? children : undefined,
+        level: currentLevel
+      };
+    };
+
+    // 6. Build and return the tree
+    const teamStructure = buildTree(memberId);
+    res.json(teamStructure);
+
+  } catch (error) {
+    console.error('Binary team error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 
 
@@ -1205,35 +1367,44 @@ app.get('/admin-referred-members', authenticateToken, async (req, res) => {
 
 
 // Update member status
-app.patch('/members/:id/status', authenticateToken, async (req, res) => {
+app.patch('/members/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const { active_status } = req.body;
 
-    // Validate input
-    if (typeof active_status !== 'boolean') {
-      return res.status(400).json({ error: 'Active status must be a boolean' });
+    // First get current member status
+    const { data: currentMember, error: fetchError } = await supabase
+      .from('members')
+      .select('active_status')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !currentMember) {
+      return res.status(404).json({ error: 'Member not found' });
     }
+
+    // Prevent reactivation if member is already deactivated
+    if (currentMember.active_status === false && active_status === true) {
+      return res.status(400).json({ 
+        error: 'Cannot reactivate a deactivated member' 
+      });
+    }
+
+    // Only allow deactivation (not reactivation)
+    const newStatus = active_status === false ? false : currentMember.active_status;
 
     // Update member status
     const { data: updatedMember, error } = await supabase
       .from('members')
       .update({
-        active_status,
+        active_status: newStatus,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
       .select()
       .single();
 
-    if (error) {
-      console.error('Update status error:', error);
-      throw error;
-    }
-
-    if (!updatedMember) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
+    if (error) throw error;
 
     res.json({
       message: 'Member status updated successfully',
@@ -2123,6 +2294,79 @@ app.get('/level-wise-team', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+//admin level wise team
+// New endpoint to get level-wise team by member ID
+app.get('/level-team-by-member/:memberId', async (req, res) => {
+  try {
+    const { memberId } = req.params;
+
+    // First verify the member exists
+    const { data: rootMember, error: memberError } = await supabase
+      .from('members')
+      .select('id, member_id, name, date_of_joining')
+      .eq('member_id', memberId)
+      .single();
+
+    if (memberError || !rootMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Recursive function to get downline members
+    async function getDownlineMembers(sponsorId, currentLevel = 1, maxLevel = 10) {
+      if (currentLevel > maxLevel) return [];
+
+      const { data: directMembers, error } = await supabase
+        .from('members')
+        .select('id, member_id, name, sponsor_code, sponsor_name, date_of_joining, active_status')
+        .eq('sponsor_code', sponsorId);
+
+      if (error || !directMembers) return [];
+
+      let members = [];
+      for (const member of directMembers) {
+        members.push({
+          ...member,
+          level: currentLevel,
+          doj: member.date_of_joining,
+          status: member.active_status ? 'Active' : 'InActive'
+        });
+        
+        // Recursively get downline
+        const downline = await getDownlineMembers(member.member_id, currentLevel + 1, maxLevel);
+        members = members.concat(downline);
+      }
+
+      return members;
+    }
+
+    // Get all downline members up to 10 levels deep
+    let downlineMembers = await getDownlineMembers(memberId);
+
+    // Sort all members by date_of_joining (oldest first)
+    downlineMembers.sort((a, b) => {
+      const dateA = new Date(a.date_of_joining);
+      const dateB = new Date(b.date_of_joining);
+      return dateA - dateB;
+    });
+
+    res.json({
+      currentMember: {
+        id: rootMember.id,
+        member_id: rootMember.member_id,
+        name: rootMember.name,
+        level: 0,
+        doj: rootMember.date_of_joining,
+        status: 'Active'
+      },
+      teamMembers: downlineMembers
+    });
+  } catch (error) {
+    console.error('Level team error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 
 // Add this to your backend routes
 app.get('/member-transactions/:memberId', authenticateToken, async (req, res) => {

@@ -741,7 +741,7 @@ app.get('/team-structure', authenticateToken, async (req, res) => {
 app.get('/matching-income', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.member_id;
-    const { root_id } = req.query;
+    const { root_id, start_date, end_date } = req.query;
     const calculationRootId = root_id || userId;
 
     // 1. Get Growth Packages
@@ -761,19 +761,18 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
 
     const growthPackageNames = growthPackages.map(p => p.name);
     const defaultMatchingValue = growthPackages[0]?.matching_value || 5;
+    const maxIncomePerPeriod = 25;
 
     // 2. Get All Members with created_at
     const { data: allMembers, error: membersError } = await supabase
       .from('members')
       .select('*')
-      .order('created_at', { ascending: true }); // Sort by join time
+      .order('created_at', { ascending: true });
     
     if (membersError) throw membersError;
 
-    // 3. Build Tree Structure with join time consideration
+    // 3. Build Tree Structure
     const memberMap = new Map();
-    
-    // Create all nodes
     allMembers.forEach(member => {
       memberMap.set(member.member_id, {
         ...member,
@@ -784,7 +783,6 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
       });
     });
 
-    // Build relationships in join order
     allMembers.forEach(member => {
       if (!member.sponsor_code || !memberMap.has(member.sponsor_code)) return;
       
@@ -796,7 +794,6 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
       if (member.position === 'Left') {
         if (!sponsor.left) sponsor.left = node;
         else {
-          // Find insertion point based on join time
           let current = sponsor.left;
           while (current.left && new Date(node.created_at) > new Date(current.left.created_at)) {
             current = current.left;
@@ -807,7 +804,6 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
       } else if (member.position === 'Right') {
         if (!sponsor.right) sponsor.right = node;
         else {
-          // Find insertion point based on join time
           let current = sponsor.right;
           while (current.right && new Date(node.created_at) > new Date(current.right.created_at)) {
             current = current.right;
@@ -827,7 +823,7 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
       });
     }
 
-    // 4. Count Valid Members in join order
+    // 4. Get valid members in join order
     const getValidMembersInOrder = (node) => {
       if (!node) return [];
       const left = getValidMembersInOrder(node.left);
@@ -835,103 +831,176 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
       return [...left, ...(node.isValid ? [node] : []), ...right];
     };
 
-    const leftMembers = calculationRoot.left ? getValidMembersInOrder(calculationRoot.left) : [];
-    const rightMembers = calculationRoot.right ? getValidMembersInOrder(calculationRoot.right) : [];
+    let leftMembers = calculationRoot.left ? getValidMembersInOrder(calculationRoot.left) : [];
+    let rightMembers = calculationRoot.right ? getValidMembersInOrder(calculationRoot.right) : [];
 
-    // 5. Calculate Matches based on join sequence
-    let incomeRecords = [];
-    let totalIncome = 0;
-    let leftIndex = 0;
-    let rightIndex = 0;
-    let matches2v1 = 0, matches1v2 = 0, matches1v1 = 0;
-
-    // Process initial special match (only once)
-    if (leftMembers.length - leftIndex >= 2 && rightMembers.length - rightIndex >= 1) {
-      incomeRecords.push({
-        date: new Date().toISOString().split('T')[0],
-        memberId: calculationRootId,
-        prevLeft: 0,
-        prevRight: 0,
-        currLeft: 2,
-        currRight: 1,
-        totalLeft: leftMembers.length - leftIndex - 2,
-        totalRight: rightMembers.length - rightIndex - 1,
-        matches: 1,
-        type: '2:1',
-        matchingPV: defaultMatchingValue,
-        income: defaultMatchingValue
-      });
-      leftIndex += 2;
-      rightIndex += 1;
-      totalIncome += defaultMatchingValue;
-      matches2v1 = 1;
-    } 
-    else if (leftMembers.length - leftIndex >= 1 && rightMembers.length - rightIndex >= 2) {
-      incomeRecords.push({
-        date: new Date().toISOString().split('T')[0],
-        memberId: calculationRootId,
-        prevLeft: 0,
-        prevRight: 0,
-        currLeft: 1,
-        currRight: 2,
-        totalLeft: leftMembers.length - leftIndex - 1,
-        totalRight: rightMembers.length - rightIndex - 2,
-        matches: 1,
-        type: '1:2',
-        matchingPV: defaultMatchingValue,
-        income: defaultMatchingValue
-      });
-      leftIndex += 1;
-      rightIndex += 2;
-      totalIncome += defaultMatchingValue;
-      matches1v2 = 1;
-    }
-
-    // Process remaining 1:1 matches
-    while (leftIndex < leftMembers.length && rightIndex < rightMembers.length) {
-      incomeRecords.push({
-        date: new Date().toISOString().split('T')[0],
-        memberId: calculationRootId,
-        prevLeft: leftIndex,
-        prevRight: rightIndex,
-        currLeft: 1,
-        currRight: 1,
-        totalLeft: leftMembers.length - leftIndex - 1,
-        totalRight: rightMembers.length - rightIndex - 1,
-        matches: 1,
-        type: '1:1',
-        matchingPV: defaultMatchingValue,
-        income: defaultMatchingValue
-      });
-      leftIndex += 1;
-      rightIndex += 1;
-      totalIncome += defaultMatchingValue;
-      matches1v1 += 1;
-    }
-
-    // 6. Return Response
-    res.json({
-      success: true,
-      data: {
-        records: incomeRecords,
-        totalIncome,
-        summary: {
-          totalLeft: leftMembers.length - leftIndex,
-          totalRight: rightMembers.length - rightIndex,
-          totalMatches: matches2v1 + matches1v2 + matches1v1,
-          matches2v1,
-          matches1v2,
-          matches1v1
+    // 5. Group members by 12-hour periods
+    const groupBy12HourPeriod = (members) => {
+      const periods = {};
+      members.forEach(member => {
+        const joinDate = new Date(member.created_at);
+        const periodStart = new Date(joinDate);
+        periodStart.setHours(joinDate.getHours() < 12 ? 0 : 12, 0, 0, 0);
+        const periodKey = periodStart.toISOString();
+        
+        if (!periods[periodKey]) {
+          periods[periodKey] = {
+            start: periodStart,
+            members: []
+          };
         }
-      },
-      debug: {
-        calculationRootId,
-        initialLeft: leftMembers.length,
-        initialRight: rightMembers.length,
-        remainingLeft: leftMembers.length - leftIndex,
-        remainingRight: rightMembers.length - rightIndex
-      }
-    });
+        periods[periodKey].members.push(member);
+      });
+      return periods;
+    };
+
+    const leftPeriods = groupBy12HourPeriod(leftMembers);
+    const rightPeriods = groupBy12HourPeriod(rightMembers);
+
+    const allPeriods = [...new Set([
+      ...Object.keys(leftPeriods),
+      ...Object.keys(rightPeriods)
+    ])].sort();
+
+    // 6. Income Calculation Logic
+    let incomeRecords = [];
+let totalIncome = 0;
+let matches2v1 = 0, matches1v2 = 0, matches1v1 = 0;
+
+// After matches carried forward
+let prevLeft = 0;
+let prevRight = 0;
+
+let specialMatchDone = false;
+
+for (const periodKey of allPeriods) {
+    const periodDate = new Date(periodKey);
+    const periodLabel = periodDate.toISOString().split('T')[0] +
+        (periodDate.getHours() === 0 ? ' (00:00-12:00)' : ' (12:01-00:00)');
+
+    const newLeft = leftPeriods[periodKey]?.members?.length || 0;
+    const newRight = rightPeriods[periodKey]?.members?.length || 0;
+
+    // Step 1: Add new members
+    let totalLeft = prevLeft + newLeft;
+    let totalRight = prevRight + newRight;
+
+    const currLeft = newLeft;
+    const currRight = newRight;
+
+    let periodIncome = 0;
+    let periodRecords = [];
+
+    // Step 2: Special first period match
+    if (!specialMatchDone) {
+        if (totalLeft >= 2 && totalRight >= 1) {
+            totalLeft -= 2;
+            totalRight -= 1;
+            totalIncome += defaultMatchingValue;
+            periodIncome += defaultMatchingValue;
+            matches2v1 += 1;
+            specialMatchDone = true;
+
+            periodRecords.push({
+                date: periodLabel,
+                prevLeft,
+                prevRight,
+                currLeft,
+                currRight,
+                totalLeft,
+                totalRight,
+                matches: 1,
+                type: '2:1',
+                matchingPV: defaultMatchingValue,
+                income: defaultMatchingValue
+            });
+        } else if (totalLeft >= 1 && totalRight >= 2) {
+            totalLeft -= 1;
+            totalRight -= 2;
+            totalIncome += defaultMatchingValue;
+            periodIncome += defaultMatchingValue;
+            matches1v2 += 1;
+            specialMatchDone = true;
+
+            periodRecords.push({
+                date: periodLabel,
+                prevLeft,
+                prevRight,
+                currLeft,
+                currRight,
+                totalLeft,
+                totalRight,
+                matches: 1,
+                type: '1:2',
+                matchingPV: defaultMatchingValue,
+                income: defaultMatchingValue
+            });
+        }
+    }
+
+    // Step 3: After first match, only 1:1 matches
+    if (specialMatchDone) {
+        let possibleMatches = Math.min(totalLeft, totalRight);
+        if (possibleMatches > 0) {
+            const income = possibleMatches * defaultMatchingValue;
+            totalLeft -= possibleMatches;
+            totalRight -= possibleMatches;
+            totalIncome += income;
+            periodIncome += income;
+            matches1v1 += possibleMatches;
+
+            periodRecords.push({
+                date: periodLabel,
+                prevLeft,
+                prevRight,
+                currLeft,
+                currRight,
+                totalLeft,
+                totalRight,
+                matches: possibleMatches,
+                type: '1:1',
+                matchingPV: income,
+                income: income
+            });
+        }
+    }
+
+    // Step 4: Update prevLeft/prevRight for next period (remaining after matches)
+    prevLeft = totalLeft;
+    prevRight = totalRight;
+
+    incomeRecords.push(...periodRecords);
+}
+
+
+    // 7. Filter by date range
+    let filteredRecords = incomeRecords;
+    if (start_date && end_date) {
+      const start = new Date(start_date);
+      const end = new Date(end_date);
+      filteredRecords = incomeRecords.filter(record => {
+        const recordDate = new Date(record.date.split(' ')[0]);
+        return recordDate >= start && recordDate <= end;
+      });
+    }
+
+    // 8. Response
+    res.json({
+  success: true,
+  data: {
+    records: incomeRecords,
+    totalIncome,
+    summary: {
+      totalLeft: prevLeft,
+      totalRight: prevRight,
+      totalMatches: matches2v1 + matches1v2 + matches1v1,
+      matches2v1,
+      matches1v2,
+      matches1v1
+    }
+  }
+});
+
 
   } catch (error) {
     console.error('Matching income error:', error);
@@ -942,6 +1011,7 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
     });
   }
 });
+      
 
 
 

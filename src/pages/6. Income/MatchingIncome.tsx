@@ -205,8 +205,8 @@ const fetchIncomeData = async () => {
     <th className="p-3 text-left text-sm font-medium">Curr Right</th>
     <th className="p-3 text-left text-sm font-medium">Total Left</th>
     <th className="p-3 text-left text-sm font-medium">Total Right</th>
-    <th className="p-3 text-left text-sm font-medium">Match Type</th>
-    {/* <th className="p-3 text-left text-sm font-medium">Matching PV</th> */}
+    {/* <th className="p-3 text-left text-sm font-medium">Match Type</th> */}
+    <th className="p-3 text-left text-sm font-medium">Matching PV</th>
     <th className="p-3 text-left text-sm font-medium">Income ($)</th>
   </tr>
 </thead>
@@ -242,12 +242,12 @@ const fetchIncomeData = async () => {
     <td className="p-3 text-sm border-b border-gray-200">
       {item.totalRight?.toLocaleString() || '0'}
     </td>
-    <td className="p-3 text-sm border-b border-gray-200">
+    {/* <td className="p-3 text-sm border-b border-gray-200">
       {item.matchType}
-    </td>
-    {/* <td className="p-3 text-sm font-semibold text-green-600 border-b border-gray-200">
-      {item.matchingPV?.toLocaleString() || '0'}
     </td> */}
+    <td className="p-3 text-sm font-semibold text-green-600 border-b border-gray-200">
+      {item.matchingPV?.toLocaleString() || '0'}
+    </td>
     <td className="p-3 text-sm font-semibold text-blue-600 border-b border-gray-200">
       ${item.income?.toLocaleString() || '0'}
     </td>

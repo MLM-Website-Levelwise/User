@@ -744,184 +744,202 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
     const { root_id } = req.query;
     const calculationRootId = root_id || userId;
 
-    const { data: allPackages, error: packagesError } = await supabase.from('packages').select('*');
+    // 1. Get Growth Packages
+    const { data: growthPackages, error: packagesError } = await supabase
+      .from('packages')
+      .select('*')
+      .eq('plan_name', 'Growth Package');
+    
     if (packagesError) throw packagesError;
+    if (!growthPackages?.length) {
+      return res.status(200).json({ 
+        success: true,
+        data: { records: [], totalIncome: 0, summary: { totalLeft: 0, totalRight: 0, totalMatches: 0 } },
+        message: 'No Growth Packages available for matching'
+      });
+    }
 
-    const growthPackages = allPackages.filter(pkg => pkg.plan_name === 'Growth Package');
     const growthPackageNames = growthPackages.map(p => p.name);
     const defaultMatchingValue = growthPackages[0]?.matching_value || 5;
 
-    const { data: allMembers, error: membersError } = await supabase.from('members').select('*');
+    // 2. Get All Members with created_at
+    const { data: allMembers, error: membersError } = await supabase
+      .from('members')
+      .select('*')
+      .order('created_at', { ascending: true }); // Sort by join time
+    
     if (membersError) throw membersError;
 
+    // 3. Build Tree Structure with join time consideration
     const memberMap = new Map();
+    
+    // Create all nodes
     allMembers.forEach(member => {
       memberMap.set(member.member_id, {
         ...member,
         left: null,
         right: null,
-        level: member.member_id === calculationRootId ? 0 : -1
+        level: member.member_id === calculationRootId ? 0 : -1,
+        isValid: member.active_status && growthPackageNames.includes(member.package)
       });
     });
 
+    // Build relationships in join order
     allMembers.forEach(member => {
-      if (member.sponsor_code && memberMap.has(member.sponsor_code)) {
-        const sponsor = memberMap.get(member.sponsor_code);
-        const node = memberMap.get(member.member_id);
-        node.level = sponsor.level + 1;
-        if (member.position === 'Left') {
-          if (!sponsor.left) sponsor.left = node;
-          else {
-            let lastLeft = sponsor.left;
-            while (lastLeft.left) lastLeft = lastLeft.left;
-            lastLeft.left = node;
+      if (!member.sponsor_code || !memberMap.has(member.sponsor_code)) return;
+      
+      const sponsor = memberMap.get(member.sponsor_code);
+      const node = memberMap.get(member.member_id);
+      
+      node.level = sponsor.level + 1;
+      
+      if (member.position === 'Left') {
+        if (!sponsor.left) sponsor.left = node;
+        else {
+          // Find insertion point based on join time
+          let current = sponsor.left;
+          while (current.left && new Date(node.created_at) > new Date(current.left.created_at)) {
+            current = current.left;
           }
-        } else if (member.position === 'Right') {
-          if (!sponsor.right) sponsor.right = node;
-          else {
-            let lastRight = sponsor.right;
-            while (lastRight.right) lastRight = lastRight.right;
-            lastRight.right = node;
+          node.left = current.left;
+          current.left = node;
+        }
+      } else if (member.position === 'Right') {
+        if (!sponsor.right) sponsor.right = node;
+        else {
+          // Find insertion point based on join time
+          let current = sponsor.right;
+          while (current.right && new Date(node.created_at) > new Date(current.right.created_at)) {
+            current = current.right;
           }
+          node.right = current.right;
+          current.right = node;
         }
       }
     });
 
     const calculationRoot = memberMap.get(calculationRootId);
-    if (!calculationRoot) return res.status(404).json({ success: false, error: 'Specified root member not found' });
+    if (!calculationRoot) {
+      return res.status(200).json({ 
+        success: true,
+        data: { records: [], totalIncome: 0, summary: { totalLeft: 0, totalRight: 0, totalMatches: 0 } },
+        message: 'Root member not found'
+      });
+    }
 
-    const countValidMembers = (node) => {
-      if (!node) return 0;
-      const isValid = node.active_status && (node.member_id === calculationRootId || growthPackageNames.includes(node.package));
-      let count = isValid ? 1 : 0;
-      if (node.left) count += countValidMembers(node.left);
-      if (node.right) count += countValidMembers(node.right);
-      return count;
+    // 4. Count Valid Members in join order
+    const getValidMembersInOrder = (node) => {
+      if (!node) return [];
+      const left = getValidMembersInOrder(node.left);
+      const right = getValidMembersInOrder(node.right);
+      return [...left, ...(node.isValid ? [node] : []), ...right];
     };
 
-    let leftCount = calculationRoot.left ? countValidMembers(calculationRoot.left) : 0;
-    let rightCount = calculationRoot.right ? countValidMembers(calculationRoot.right) : 0;
+    const leftMembers = calculationRoot.left ? getValidMembersInOrder(calculationRoot.left) : [];
+    const rightMembers = calculationRoot.right ? getValidMembersInOrder(calculationRoot.right) : [];
 
+    // 5. Calculate Matches based on join sequence
     let incomeRecords = [];
-    let totalIncome = 0, totalMatches = 0;
+    let totalIncome = 0;
+    let leftIndex = 0;
+    let rightIndex = 0;
     let matches2v1 = 0, matches1v2 = 0, matches1v1 = 0;
 
-    let totalLeftRunning = leftCount;
-    let totalRightRunning = rightCount;
-
-    // 2:1 matches
-    while (leftCount >= 2 && rightCount >= 1) {
-      let prevLeft = totalLeftRunning;
-      let prevRight = totalRightRunning;
-
-      leftCount -= 2;
-      rightCount -= 1;
-      totalLeftRunning -= 2;
-      totalRightRunning -= 1;
-
+    // Process initial special match (only once)
+    if (leftMembers.length - leftIndex >= 2 && rightMembers.length - rightIndex >= 1) {
       incomeRecords.push({
         date: new Date().toISOString().split('T')[0],
         memberId: calculationRootId,
-        prevLeft,
-        prevRight,
+        prevLeft: 0,
+        prevRight: 0,
         currLeft: 2,
         currRight: 1,
-        totalLeft: totalLeftRunning,
-        totalRight: totalRightRunning,
+        totalLeft: leftMembers.length - leftIndex - 2,
+        totalRight: rightMembers.length - rightIndex - 1,
         matches: 1,
         type: '2:1',
         matchingPV: defaultMatchingValue,
         income: defaultMatchingValue
       });
+      leftIndex += 2;
+      rightIndex += 1;
       totalIncome += defaultMatchingValue;
-      totalMatches += 1;
-      matches2v1++;
-    }
-
-    // 1:2 matches
-    while (leftCount >= 1 && rightCount >= 2) {
-      let prevLeft = totalLeftRunning;
-      let prevRight = totalRightRunning;
-
-      leftCount -= 1;
-      rightCount -= 2;
-      totalLeftRunning -= 1;
-      totalRightRunning -= 2;
-
+      matches2v1 = 1;
+    } 
+    else if (leftMembers.length - leftIndex >= 1 && rightMembers.length - rightIndex >= 2) {
       incomeRecords.push({
         date: new Date().toISOString().split('T')[0],
         memberId: calculationRootId,
-        prevLeft,
-        prevRight,
+        prevLeft: 0,
+        prevRight: 0,
         currLeft: 1,
         currRight: 2,
-        totalLeft: totalLeftRunning,
-        totalRight: totalRightRunning,
+        totalLeft: leftMembers.length - leftIndex - 1,
+        totalRight: rightMembers.length - rightIndex - 2,
         matches: 1,
         type: '1:2',
         matchingPV: defaultMatchingValue,
         income: defaultMatchingValue
       });
+      leftIndex += 1;
+      rightIndex += 2;
       totalIncome += defaultMatchingValue;
-      totalMatches += 1;
-      matches1v2++;
+      matches1v2 = 1;
     }
 
-    // 1:1 matches
-    while (leftCount >= 1 && rightCount >= 1) {
-      let prevLeft = totalLeftRunning;
-      let prevRight = totalRightRunning;
-
-      leftCount -= 1;
-      rightCount -= 1;
-      totalLeftRunning -= 1;
-      totalRightRunning -= 1;
-
+    // Process remaining 1:1 matches
+    while (leftIndex < leftMembers.length && rightIndex < rightMembers.length) {
       incomeRecords.push({
         date: new Date().toISOString().split('T')[0],
         memberId: calculationRootId,
-        prevLeft,
-        prevRight,
+        prevLeft: leftIndex,
+        prevRight: rightIndex,
         currLeft: 1,
         currRight: 1,
-        totalLeft: totalLeftRunning,
-        totalRight: totalRightRunning,
+        totalLeft: leftMembers.length - leftIndex - 1,
+        totalRight: rightMembers.length - rightIndex - 1,
         matches: 1,
         type: '1:1',
         matchingPV: defaultMatchingValue,
         income: defaultMatchingValue
       });
+      leftIndex += 1;
+      rightIndex += 1;
       totalIncome += defaultMatchingValue;
-      totalMatches += 1;
-      matches1v1++;
+      matches1v1 += 1;
     }
 
+    // 6. Return Response
     res.json({
       success: true,
       data: {
         records: incomeRecords,
         totalIncome,
         summary: {
-          totalLeft: totalLeftRunning,
-          totalRight: totalRightRunning,
-          totalMatches
+          totalLeft: leftMembers.length - leftIndex,
+          totalRight: rightMembers.length - rightIndex,
+          totalMatches: matches2v1 + matches1v2 + matches1v1,
+          matches2v1,
+          matches1v2,
+          matches1v1
         }
       },
       debug: {
         calculationRootId,
-        initialLeft: countValidMembers(calculationRoot.left),
-        initialRight: countValidMembers(calculationRoot.right),
-        matches2v1,
-        matches1v2,
-        matches1v1,
-        remainingLeft: totalLeftRunning,
-        remainingRight: totalRightRunning
+        initialLeft: leftMembers.length,
+        initialRight: rightMembers.length,
+        remainingLeft: leftMembers.length - leftIndex,
+        remainingRight: rightMembers.length - rightIndex
       }
     });
 
   } catch (error) {
     console.error('Matching income error:', error);
-    res.status(500).json({ success: false, error: 'Calculation failed', details: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: 'Calculation failed',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

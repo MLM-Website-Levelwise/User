@@ -416,11 +416,16 @@ const ViewMember = () => {
                       <td className="px-3 py-4 text-xs md:text-sm text-gray-900 bg-white">
                         {startIndex + index + 1}
                       </td>
-                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
-                        {new Date(member.date_of_joining).toLocaleDateString(
-                          "en-GB"
-                        )}
-                      </td>
+                     <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
+  <div className="flex flex-col">
+    <span>
+      {new Date(member.date_of_joining).toLocaleDateString("en-GB")}
+    </span>
+    <span className="text-xs text-gray-500">
+      {member.join_time || 'N/A'}
+    </span>
+  </div>
+</td>
                       <td className="px-3 py-4 text-xs md:text-sm text-blue-600 font-medium bg-white">
                         {member.member_id}
                       </td>

@@ -28,7 +28,7 @@ const ReTopUp = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [member, setMember] = useState({
     id: "",
-    name: ""
+    name: "",
   });
 
   // Profit Sharing amount options (multiples of 75 up to 4500)
@@ -44,17 +44,20 @@ const ReTopUp = () => {
         setIsLoading(true);
         const token = localStorage.getItem("token");
         const memberData = JSON.parse(localStorage.getItem("member") || "{}");
-        
+
         setMember({
           id: memberData.member_id || "N/A",
-          name: memberData.name || "N/A"
+          name: memberData.name || "N/A",
         });
 
         // Fetch Re-Top Up wallet balance
-        const response = await axios.get(`${API_BASE_URL}/re-top-up-wallet-balance`, {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { member_id: memberData.member_id }
-        });
+        const response = await axios.get(
+          `${API_BASE_URL}/re-top-up-wallet-balance`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { member_id: memberData.member_id },
+          }
+        );
 
         if (response.data.success) {
           setWalletBalance(response.data.balance);
@@ -76,46 +79,44 @@ const ReTopUp = () => {
   }, [selectedPlan]);
 
   const handleReTopUp = async () => {
-  try {
-    
-    const token = localStorage.getItem("token");
-    const memberData = JSON.parse(localStorage.getItem("member") || "{}");
-    const amount = getReTopUpAmount();
+    try {
+      const token = localStorage.getItem("token");
+      const memberData = JSON.parse(localStorage.getItem("member") || "{}");
+      const amount = getReTopUpAmount();
 
-    // Force all IDs to strings
-    const response = await axios.post(
-      `${API_BASE_URL}/re-top-up`,
-      {
-        memberId: String(memberData.member_id), // Force string
-        planType: selectedPlan,
-        amount: amount
-      },
-      {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json" 
+      // Force all IDs to strings
+      const response = await axios.post(
+        `${API_BASE_URL}/re-top-up`,
+        {
+          memberId: String(memberData.member_id), // Force string
+          planType: selectedPlan,
+          amount: amount,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
-      }
-    );
-    
+      );
 
-    if (response.data.success) {
-      setWalletBalance(response.data.newBalance);
-      setInvoice({
-        invoiceId: response.data.transactionId,
-        memberName: memberData.name,
-        memberId: String(memberData.member_id), // Force string
-        planType: selectedPlan,
-        amount: amount,
-        date: new Date().toLocaleDateString(),
-        remainingBalance: response.data.newBalance
-      });
-      toast.success("Re-Top Up Successful!");
+      if (response.data.success) {
+        setWalletBalance(response.data.newBalance);
+        setInvoice({
+          invoiceId: response.data.transactionId,
+          memberName: memberData.name,
+          memberId: String(memberData.member_id), // Force string
+          planType: selectedPlan,
+          amount: amount,
+          date: new Date().toLocaleDateString(),
+          remainingBalance: response.data.newBalance,
+        });
+        toast.success("Re-Top Up Successful!");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Failed to process Re-Top Up");
     }
-  } catch (error) {
-    toast.error(error.response?.data?.error || "Failed to process Re-Top Up");
-  }
-};
+  };
 
   const getReTopUpAmount = () => {
     if (selectedPlan === "growth") {
@@ -136,7 +137,56 @@ const ReTopUp = () => {
             <div className="w-full min-h-full">
               <div className="w-full bg-white shadow-lg overflow-hidden">
                 {/* Header with Wallet */}
-                <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white">
+                {/* <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white">
+                  <div className="px-8 py-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white bg-opacity-20 p-3 rounded-full flex items-center justify-center">
+                          <Wallet className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h1 className="text-2xl font-bold tracking-tight">
+                            RE-TOP UP WALLET
+                          </h1>
+                          <p className="text-blue-100 text-sm opacity-90">
+                            Re-Top Up member accounts using your wallet balance
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white bg-opacity-10 backdrop-blur-sm rounded-xl p-4 border border-white border-opacity-20 shadow-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-white bg-opacity-20 p-2 rounded-full">
+                              <Wallet className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-blue-100 opacity-90">
+                                RE-TOP UP WALLET BALANCE
+                              </p>
+                              <p className="text-xl font-bold tracking-wide">
+                                ${(walletBalance || 0).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div> */}
+                {/* Mobile-only wallet balance (simple box) */}
+                <div className="md:hidden bg-white text-white p-4">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-700 bg-opacity-20 rounded-lg p-3 text-center">
+                    <p className="text-sm font-medium opacity-90">
+                      RE-TOP UP WALLET BALANCE
+                    </p>
+                    <p className="text-2xl font-bold">
+                      ${(walletBalance || 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Desktop header (full version) */}
+                <div className="hidden md:block bg-gradient-to-r from-blue-600 via-blue-700 to-purple-700 text-white">
                   <div className="px-8 py-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">

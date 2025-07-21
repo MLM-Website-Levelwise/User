@@ -182,7 +182,7 @@ const LevelTeam = () => {
         ? `$${member.total_retopup.toFixed(2)}`
         : "$0.00",
       total_business: member.total_business,
-      profit_sharing_bonus: calculateProfitSharingBonus(member.total_business) // Add bonus calculation
+      profit_sharing_bonus: calculateProfitSharingBonus(member.total_business), // Add bonus calculation
     })),
   ];
 
@@ -533,44 +533,44 @@ const LevelTeam = () => {
               <table className="w-full">
                 <thead className="bg-gray-600 text-white">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Sl.No
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       DOJ
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Member Id
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Member Name
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Sponsor Code
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Sponsor Name
                     </th>
 
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Topup Date
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Topup Amount
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Total Re Top up
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Total Business
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Profit Sharing Bonus
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">
+                    <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap">
                       Level
                     </th>
                   </tr>

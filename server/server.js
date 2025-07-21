@@ -583,27 +583,6 @@ app.get('/members', authenticateToken, async (req, res) => {
   }
 });
 
-// Add this new route in your backend
-app.get('/members/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { data: member, error } = await supabase
-      .from('members')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) throw error;
-    if (!member) return res.status(404).json({ error: 'Member not found' });
-
-    res.json(member);
-  } catch (error) {
-    console.error('Get member error:', error);
-    res.status(500).json({ error: 'Failed to fetch member' });
-  }
-});
-
 // Add this endpoint to get ALL members (with special handling for PN1001)
 app.get('/all-membersi', async (req, res) => {
   try {
@@ -857,9 +836,8 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
 
     const growthPackageNames = growthPackages.map(p => p.name);
     const defaultMatchingValue = growthPackages[0]?.matching_value || 5;
-    const maxIncomePerPeriod = 25;
 
-    // 2. Get All Members with created_at
+    // 2. Get All Members
     const { data: allMembers, error: membersError } = await supabase
       .from('members')
       .select('*')
@@ -867,7 +845,7 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
     
     if (membersError) throw membersError;
 
-    // 3. Build Tree Structure
+    // 3. Build Tree
     const memberMap = new Map();
     allMembers.forEach(member => {
       memberMap.set(member.member_id, {
@@ -881,12 +859,10 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
 
     allMembers.forEach(member => {
       if (!member.sponsor_code || !memberMap.has(member.sponsor_code)) return;
-      
       const sponsor = memberMap.get(member.sponsor_code);
       const node = memberMap.get(member.member_id);
-      
       node.level = sponsor.level + 1;
-      
+
       if (member.position === 'Left') {
         if (!sponsor.left) sponsor.left = node;
         else {
@@ -919,7 +895,7 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
       });
     }
 
-    // 4. Get valid members in join order
+    // 4. Get Valid Members
     const getValidMembersInOrder = (node) => {
       if (!node) return [];
       const left = getValidMembersInOrder(node.left);
@@ -930,7 +906,7 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
     let leftMembers = calculationRoot.left ? getValidMembersInOrder(calculationRoot.left) : [];
     let rightMembers = calculationRoot.right ? getValidMembersInOrder(calculationRoot.right) : [];
 
-    // 5. Group members by 12-hour periods
+    // 5. Group by 12-hour period
     const groupBy12HourPeriod = (members) => {
       const periods = {};
       members.forEach(member => {
@@ -958,118 +934,108 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
       ...Object.keys(rightPeriods)
     ])].sort();
 
-    // 6. Income Calculation Logic
+    // 6. Matching Logic
     let incomeRecords = [];
-let totalIncome = 0;
-let matches2v1 = 0, matches1v2 = 0, matches1v1 = 0;
+    let totalIncome = 0;
+    let matches2v1 = 0, matches1v2 = 0, matches1v1 = 0;
+    let prevLeft = 0, prevRight = 0;
+    let specialMatchDone = false;
 
-// After matches carried forward
-let prevLeft = 0;
-let prevRight = 0;
+    for (const periodKey of allPeriods) {
+      const periodDate = new Date(periodKey);
+      const periodLabel = periodDate.toISOString().split('T')[0] +
+        (periodDate.getHours() === 0 ? ' (00:00-12:00)' : ' (12:01-23:59)');
 
-let specialMatchDone = false;
+      const currLeft = leftPeriods[periodKey]?.members?.length || 0;
+      const currRight = rightPeriods[periodKey]?.members?.length || 0;
 
-for (const periodKey of allPeriods) {
-    const periodDate = new Date(periodKey);
-    const periodLabel = periodDate.toISOString().split('T')[0] +
-        (periodDate.getHours() === 0 ? ' (00:00-12:00)' : ' (12:01-00:00)');
+      let totalLeft = prevLeft + currLeft;
+      let totalRight = prevRight + currRight;
 
-    const newLeft = leftPeriods[periodKey]?.members?.length || 0;
-    const newRight = rightPeriods[periodKey]?.members?.length || 0;
+      let periodIncome = 0;
+      let periodRecords = [];
 
-    // Step 1: Add new members
-    let totalLeft = prevLeft + newLeft;
-    let totalRight = prevRight + newRight;
-
-    const currLeft = newLeft;
-    const currRight = newRight;
-
-    let periodIncome = 0;
-    let periodRecords = [];
-
-    // Step 2: Special first period match
-    if (!specialMatchDone) {
+      // First round 2:1 or 1:2 only once
+      if (!specialMatchDone) {
         if (totalLeft >= 2 && totalRight >= 1) {
-            totalLeft -= 2;
-            totalRight -= 1;
-            totalIncome += defaultMatchingValue;
-            periodIncome += defaultMatchingValue;
-            matches2v1 += 1;
-            specialMatchDone = true;
+          totalLeft -= 2;
+          totalRight -= 1;
+          totalIncome += defaultMatchingValue;
+          periodIncome += defaultMatchingValue;
+          matches2v1 += 1;
+          specialMatchDone = true;
 
-            periodRecords.push({
-                date: periodLabel,
-                prevLeft,
-                prevRight,
-                currLeft,
-                currRight,
-                totalLeft,
-                totalRight,
-                matches: 1,
-                type: '2:1',
-                matchingPV: defaultMatchingValue,
-                income: defaultMatchingValue
-            });
+          periodRecords.push({
+            date: periodLabel,
+            prevLeft,
+            prevRight,
+            currLeft,
+            currRight,
+            totalLeft,
+            totalRight,
+            matches: 1,
+            type: '2:1',
+            matchingPV: defaultMatchingValue,
+            income: defaultMatchingValue
+          });
         } else if (totalLeft >= 1 && totalRight >= 2) {
-            totalLeft -= 1;
-            totalRight -= 2;
-            totalIncome += defaultMatchingValue;
-            periodIncome += defaultMatchingValue;
-            matches1v2 += 1;
-            specialMatchDone = true;
+          totalLeft -= 1;
+          totalRight -= 2;
+          totalIncome += defaultMatchingValue;
+          periodIncome += defaultMatchingValue;
+          matches1v2 += 1;
+          specialMatchDone = true;
 
-            periodRecords.push({
-                date: periodLabel,
-                prevLeft,
-                prevRight,
-                currLeft,
-                currRight,
-                totalLeft,
-                totalRight,
-                matches: 1,
-                type: '1:2',
-                matchingPV: defaultMatchingValue,
-                income: defaultMatchingValue
-            });
+          periodRecords.push({
+            date: periodLabel,
+            prevLeft,
+            prevRight,
+            currLeft,
+            currRight,
+            totalLeft,
+            totalRight,
+            matches: 1,
+            type: '1:2',
+            matchingPV: defaultMatchingValue,
+            income: defaultMatchingValue
+          });
         }
+      }
+
+      // After special match — only 1:1
+      if (specialMatchDone) {
+        let oneOneMatches = Math.min(totalLeft, totalRight);
+        if (oneOneMatches > 0) {
+          let income = oneOneMatches * defaultMatchingValue;
+          totalLeft -= oneOneMatches;
+          totalRight -= oneOneMatches;
+          totalIncome += income;
+          periodIncome += income;
+          matches1v1 += oneOneMatches;
+
+          periodRecords.push({
+            date: periodLabel,
+            prevLeft,
+            prevRight,
+            currLeft,
+            currRight,
+            totalLeft,
+            totalRight,
+            matches: oneOneMatches,
+            type: '1:1',
+            matchingPV: income,
+            income: income
+          });
+        }
+      }
+
+      prevLeft = totalLeft;
+      prevRight = totalRight;
+
+      incomeRecords.push(...periodRecords);
     }
 
-    // Step 3: After first match, only 1:1 matches
-    if (specialMatchDone) {
-        let possibleMatches = Math.min(totalLeft, totalRight);
-        if (possibleMatches > 0) {
-            const income = possibleMatches * defaultMatchingValue;
-            totalLeft -= possibleMatches;
-            totalRight -= possibleMatches;
-            totalIncome += income;
-            periodIncome += income;
-            matches1v1 += possibleMatches;
-
-            periodRecords.push({
-                date: periodLabel,
-                prevLeft,
-                prevRight,
-                currLeft,
-                currRight,
-                totalLeft,
-                totalRight,
-                matches: possibleMatches,
-                type: '1:1',
-                matchingPV: income,
-                income: income
-            });
-        }
-    }
-
-    // Step 4: Update prevLeft/prevRight for next period (remaining after matches)
-    prevLeft = totalLeft;
-    prevRight = totalRight;
-
-    incomeRecords.push(...periodRecords);
-}
-
-
-    // 7. Filter by date range
+    // 7. Optional date filter
     let filteredRecords = incomeRecords;
     if (start_date && end_date) {
       const start = new Date(start_date);
@@ -1082,21 +1048,20 @@ for (const periodKey of allPeriods) {
 
     // 8. Response
     res.json({
-  success: true,
-  data: {
-    records: incomeRecords,
-    totalIncome,
-    summary: {
-      totalLeft: prevLeft,
-      totalRight: prevRight,
-      totalMatches: matches2v1 + matches1v2 + matches1v1,
-      matches2v1,
-      matches1v2,
-      matches1v1
-    }
-  }
-});
-
+      success: true,
+      data: {
+        records: filteredRecords,
+        totalIncome,
+        summary: {
+          totalLeft: prevLeft,
+          totalRight: prevRight,
+          totalMatches: matches2v1 + matches1v2 + matches1v1,
+          matches2v1,
+          matches1v2,
+          matches1v1
+        }
+      }
+    });
 
   } catch (error) {
     console.error('Matching income error:', error);
@@ -1107,6 +1072,7 @@ for (const periodKey of allPeriods) {
     });
   }
 });
+
       
 
 //Tree for admin
@@ -1290,6 +1256,27 @@ app.get('/members/check-sponsor', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Check sponsor error:', error);
     res.status(500).json({ error: 'Failed to fetch sponsor information' });
+  }
+});
+
+// Add this new route in your backend
+app.get('/members/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: member, error } = await supabase
+      .from('members')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    if (!member) return res.status(404).json({ error: 'Member not found' });
+
+    res.json(member);
+  } catch (error) {
+    console.error('Get member error:', error);
+    res.status(500).json({ error: 'Failed to fetch member' });
   }
 });
 
@@ -2522,7 +2509,6 @@ app.get('/my-member', authenticateToken, async (req, res) => {
     let rootMemberId;
     
     if (memberId) {
-      // If logged in as member, get their member ID
       const { data: member, error } = await supabase
         .from('members')
         .select('member_id, created_at')
@@ -2534,15 +2520,12 @@ app.get('/my-member', authenticateToken, async (req, res) => {
       }
       rootMemberId = member.member_id;
     } else if (userId) {
-      // If logged in as admin, get all members
       rootMemberId = null;
     } else {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Recursive function to get all downline members with top-up data
     async function getDownlineMembers(sponsorId) {
-      // Get direct referrals (only first level downline)
       const { data: directMembers, error } = await supabase
         .from('members')
         .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, created_at, active_status, position')
@@ -2550,10 +2533,8 @@ app.get('/my-member', authenticateToken, async (req, res) => {
 
       if (error || !directMembers) return [];
 
-      // Get member IDs for fetching top-up data
       const memberIds = directMembers.map(m => m.member_id);
 
-      // Fetch latest top-up for each member
       const { data: topUpData, error: topUpError } = await supabase
         .from('main_balance_transactions')
         .select('activated_member_id, transaction_date, amount')
@@ -2563,7 +2544,6 @@ app.get('/my-member', authenticateToken, async (req, res) => {
 
       if (topUpError) throw topUpError;
 
-      // Create a map of member_id to their latest top-up
       const topUpMap = new Map();
       topUpData.forEach(transaction => {
         if (!topUpMap.has(transaction.activated_member_id)) {
@@ -2574,17 +2554,17 @@ app.get('/my-member', authenticateToken, async (req, res) => {
         }
       });
 
-      // Add top-up data to direct members
       let allMembers = directMembers.map(member => {
         const topUpInfo = topUpMap.get(member.member_id) || {};
         return {
           ...member,
           topup_date: topUpInfo.topup_date || null,
-          topup_amount: topUpInfo.topup_amount || null
+          topup_amount: topUpInfo.topup_amount || null,
+          // Add time from created_at
+          join_time: member.created_at ? new Date(member.created_at).toLocaleTimeString() : null
         };
       });
       
-      // Recursively get downline for each direct member
       for (const member of directMembers) {
         const downline = await getDownlineMembers(member.member_id);
         allMembers = allMembers.concat(downline);
@@ -2593,23 +2573,18 @@ app.get('/my-member', authenticateToken, async (req, res) => {
       return allMembers;
     }
 
-    // Get all members (either all for admin or downline for member)
     let members;
     if (rootMemberId) {
-      // Get ONLY the downline for a member (excluding the member themselves)
       members = await getDownlineMembers(rootMemberId);
     } else {
-      // Admin gets all members with top-up data
       const { data: allMembers, error } = await supabase
         .from('members')
         .select('id, member_id, name, sponsor_code, sponsor_name, package, date_of_joining, created_at, active_status, position');
       
       if (error) throw error;
       
-      // Get all member IDs for top-up data
       const memberIds = allMembers.map(m => m.member_id);
       
-      // Fetch top-up data for all members
       const { data: topUpData, error: topUpError } = await supabase
         .from('main_balance_transactions')
         .select('activated_member_id, transaction_date, amount')
@@ -2619,7 +2594,6 @@ app.get('/my-member', authenticateToken, async (req, res) => {
 
       if (topUpError) throw topUpError;
 
-      // Create a map of member_id to their latest top-up
       const topUpMap = new Map();
       topUpData.forEach(transaction => {
         if (!topUpMap.has(transaction.activated_member_id)) {
@@ -2630,24 +2604,21 @@ app.get('/my-member', authenticateToken, async (req, res) => {
         }
       });
 
-      // Add top-up data to all members
       members = allMembers.map(member => {
         const topUpInfo = topUpMap.get(member.member_id) || {};
         return {
           ...member,
           topup_date: topUpInfo.topup_date || null,
-          topup_amount: topUpInfo.topup_amount || null
+          topup_amount: topUpInfo.topup_amount || null,
+          // Add time from created_at
+          join_time: member.created_at ? new Date(member.created_at).toLocaleTimeString() : null
         };
       });
     }
 
-    // Sort all members by date_of_joining and then by created_at timestamp
     members.sort((a, b) => {
-      // First compare by date_of_joining
       const dateDiff = new Date(a.date_of_joining) - new Date(b.date_of_joining);
       if (dateDiff !== 0) return dateDiff;
-      
-      // If dates are equal, compare by created_at timestamp
       return new Date(a.created_at) - new Date(b.created_at);
     });
 
@@ -4055,6 +4026,39 @@ app.post('/api/bank-details', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error saving bank details:', error);
     res.status(500).json({ error: 'Failed to save bank details' });
+  }
+});
+
+
+//all bank
+// New endpoint to fetch all bank details
+app.get('/api/all-bank-details', authenticateToken, async (req, res) => {
+  try {
+    // Get all bank details with member names
+    const { data: bankDetails, error } = await supabase
+      .from('bank_details')
+      .select(`
+        *,
+        members:member_id (name)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Format the response
+    const formattedData = bankDetails.map(detail => ({
+      ...detail,
+      member_name: detail.members?.name || 'Unknown'
+    }));
+
+    res.json(formattedData);
+
+  } catch (error) {
+    console.error('Error fetching all bank details:', error);
+    res.status(500).json({ error: 'Failed to fetch bank details' });
   }
 });
 

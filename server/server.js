@@ -485,12 +485,30 @@ app.put('/members/:id', authenticateToken, async (req, res) => {
       package,
       password,
       date_of_joining,
-      position // Add position field
+      position
     } = req.body;
 
     // Validate required fields
-    if (!name || !phone_number || !sponsor_code || !sponsor_name || !package || !password || !date_of_joining || !position) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    const requiredFields = {
+      name,
+      phone_number,
+      sponsor_code,
+      sponsor_name,
+      package,
+      password,
+      date_of_joining,
+      position
+    };
+
+    const missingFields = Object.entries(requiredFields)
+      .filter(([_, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        missingFields
+      });
     }
 
     const { data: updatedMember, error } = await supabase
@@ -504,14 +522,18 @@ app.put('/members/:id', authenticateToken, async (req, res) => {
         package,
         password,
         date_of_joining,
-        position, // Include position in update
+        position,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
+      .eq('id', id)  // Using numeric id here
       .select()
       .single();
 
     if (error) throw error;
+
+    if (!updatedMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
 
     res.json({
       message: 'Member updated successfully',
@@ -519,7 +541,7 @@ app.put('/members/:id', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Update member error:', error);
-    res.status(500).json({ error: 'Failed to update member' });
+    res.status(500).json({ error: error.message || 'Failed to update member' });
   }
 });
 
@@ -558,6 +580,27 @@ app.get('/members', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get members error:', error);
     res.status(500).json({ error: 'Failed to fetch members' });
+  }
+});
+
+// Add this new route in your backend
+app.get('/members/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: member, error } = await supabase
+      .from('members')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    if (!member) return res.status(404).json({ error: 'Member not found' });
+
+    res.json(member);
+  } catch (error) {
+    console.error('Get member error:', error);
+    res.status(500).json({ error: 'Failed to fetch member' });
   }
 });
 
@@ -606,7 +649,8 @@ async function fetchAllMembersi(res) {
       return {
         ...member,
         topup_date: topUpData?.[0]?.transaction_date || null,
-        topup_amount: topUpData?.[0]?.amount || null
+        topup_amount: topUpData?.[0]?.amount || null,
+        created_at: member.created_at // Include the created_at timestamp
       };
     })
   );
@@ -1283,7 +1327,8 @@ app.get('/direct-members', authenticateToken, async (req, res) => {
       .from('members')
       .select('id, member_id, name, phone_number, email, sponsor_code, sponsor_name, package, active_status, date_of_joining, created_at, position', 
         { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .order('date_of_joining', { ascending: true }) // Primary sort by DOJ
+      .order('created_at', { ascending: true }) // Secondary sort by created_at
       .range(offset, offset + limit - 1);
 
     if (search) {
@@ -1299,7 +1344,8 @@ app.get('/direct-members', authenticateToken, async (req, res) => {
     const formattedMembers = members.map(member => ({
       ...member,
       sponsor_id: member.sponsor_code,
-      position: member.position || 'Left' // Use actual position from DB
+      status: member.active_status, // Ensure status is correctly mapped
+      position: member.position || 'Left'
     }));
 
     res.json({
@@ -1372,32 +1418,11 @@ app.patch('/members/:id/status', async (req, res) => {
     const { id } = req.params;
     const { active_status } = req.body;
 
-    // First get current member status
-    const { data: currentMember, error: fetchError } = await supabase
-      .from('members')
-      .select('active_status')
-      .eq('id', id)
-      .single();
-
-    if (fetchError || !currentMember) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
-
-    // Prevent reactivation if member is already deactivated
-    if (currentMember.active_status === false && active_status === true) {
-      return res.status(400).json({ 
-        error: 'Cannot reactivate a deactivated member' 
-      });
-    }
-
-    // Only allow deactivation (not reactivation)
-    const newStatus = active_status === false ? false : currentMember.active_status;
-
     // Update member status
     const { data: updatedMember, error } = await supabase
       .from('members')
       .update({
-        active_status: newStatus,
+        active_status: active_status,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -2312,7 +2337,7 @@ app.get('/level-team-by-member/:memberId', async (req, res) => {
       return res.status(404).json({ error: 'Member not found' });
     }
 
-    // Recursive function to get downline members
+    // Recursive function to get downline members with business data
     async function getDownlineMembers(sponsorId, currentLevel = 1, maxLevel = 10) {
       if (currentLevel > maxLevel) return [];
 
@@ -2323,13 +2348,98 @@ app.get('/level-team-by-member/:memberId', async (req, res) => {
 
       if (error || !directMembers) return [];
 
+      // Get member IDs for fetching business data
+      const memberIds = directMembers.map(m => m.member_id);
+
+      // Fetch latest top-up for each member
+      const { data: topUpData, error: topUpError } = await supabase
+        .from('main_balance_transactions')
+        .select('activated_member_id, transaction_date, amount')
+        .in('activated_member_id', memberIds)
+        .ilike('transaction_type', '%activation%')
+        .order('transaction_date', { ascending: false });
+
+      // Get profit-sharing business - MAIN TABLE uses activated_member_id
+      const { data: mainBusiness } = await supabase
+        .from('main_balance_transactions')
+        .select('activated_member_id, amount')
+        .in('activated_member_id', memberIds)
+        .eq('plan_type', 'profit-sharing');
+
+      // RE-TOPUP TABLE uses member_id
+      const { data: retopupBusiness } = await supabase
+        .from('re_top_up_transactions')
+        .select('member_id, amount')
+        .in('member_id', memberIds)
+        .eq('plan_type', 'profit-sharing');
+
+      // Fetch all re-topup amounts for each member
+      const { data: allRetopups } = await supabase
+        .from('re_top_up_transactions')
+        .select('member_id, amount')
+        .in('member_id', memberIds);
+
+      // Calculate total re-topup per member
+      const retopupMap = new Map();
+      allRetopups?.forEach(txn => {
+        retopupMap.set(txn.member_id, (retopupMap.get(txn.member_id) || 0) + txn.amount);
+      });
+
+      // Calculate total business per member
+      const businessMap = new Map();
+      
+      // Process main balance transactions (activated_member_id)
+      mainBusiness?.forEach(txn => {
+        businessMap.set(txn.activated_member_id, (businessMap.get(txn.activated_member_id) || 0) + txn.amount);
+      });
+      
+      // Process re-topup transactions (member_id)
+      retopupBusiness?.forEach(txn => {
+        businessMap.set(txn.member_id, (businessMap.get(txn.member_id) || 0) + txn.amount);
+      });
+
+      // Create top-up map
+      const topUpMap = new Map();
+      topUpData?.forEach(txn => {
+        if (!topUpMap.has(txn.activated_member_id)) {
+          topUpMap.set(txn.activated_member_id, {
+            topup_date: txn.transaction_date,
+            topup_amount: txn.amount
+          });
+        }
+      });
+
       let members = [];
       for (const member of directMembers) {
+        const topUpInfo = topUpMap.get(member.member_id) || {};
+        
+        // Get business from both sources
+        const mainBusinessAmount = mainBusiness
+          ?.filter(t => t.activated_member_id === member.member_id)
+          .reduce((sum, t) => sum + t.amount, 0) || 0;
+          
+        const retopupBusinessAmount = retopupBusiness
+          ?.filter(t => t.member_id === member.member_id)
+          .reduce((sum, t) => sum + t.amount, 0) || 0;
+        
+        const totalBusiness = mainBusinessAmount + retopupBusinessAmount;
+        
+        // Get total re-topup amount for this member
+        const totalRetopup = retopupMap.get(member.member_id) || 0;
+        
+        // Calculate profit sharing bonus (10% of total business)
+        const profitSharingBonus = totalBusiness * 0.10;
+        
         members.push({
           ...member,
           level: currentLevel,
           doj: member.date_of_joining,
-          status: member.active_status ? 'Active' : 'InActive'
+          status: member.active_status ? 'Active' : 'InActive',
+          topup_amount: topUpInfo.topup_amount || 0,
+          total_retopup: totalRetopup,
+          total_business: totalBusiness,
+          profit_sharing: profitSharingBonus,
+          bonus: 0 // You can add bonus calculation logic here if needed
         });
         
         // Recursively get downline
@@ -2340,7 +2450,7 @@ app.get('/level-team-by-member/:memberId', async (req, res) => {
       return members;
     }
 
-    // Get all downline members up to 10 levels deep
+    // Get all downline members up to 10 levels deep with business data
     let downlineMembers = await getDownlineMembers(memberId);
 
     // Sort all members by date_of_joining (oldest first)
@@ -2357,7 +2467,12 @@ app.get('/level-team-by-member/:memberId', async (req, res) => {
         name: rootMember.name,
         level: 0,
         doj: rootMember.date_of_joining,
-        status: 'Active'
+        status: 'Active',
+        topup_amount: 0,
+        total_retopup: 0,
+        total_business: 0,
+        profit_sharing: 0,
+        bonus: 0
       },
       teamMembers: downlineMembers
     });

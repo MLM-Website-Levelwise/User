@@ -906,23 +906,35 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
     let leftMembers = calculationRoot.left ? getValidMembersInOrder(calculationRoot.left) : [];
     let rightMembers = calculationRoot.right ? getValidMembersInOrder(calculationRoot.right) : [];
 
-    // 5. Group by 12-hour period
+    // 5. Group by 12-hour period (CORRECTED)
     const groupBy12HourPeriod = (members) => {
       const periods = {};
+      
       members.forEach(member => {
         const joinDate = new Date(member.created_at);
-        const periodStart = new Date(joinDate);
-        periodStart.setHours(joinDate.getHours() < 12 ? 0 : 12, 0, 0, 0);
-        const periodKey = periodStart.toISOString();
+        let periodLabel;
+        const datePart = joinDate.toISOString().split('T')[0];
         
-        if (!periods[periodKey]) {
-          periods[periodKey] = {
-            start: periodStart,
+        // Determine time period
+        const hour = joinDate.getHours();
+        const isMorning = hour < 12 || (hour === 12 && joinDate.getMinutes() === 0 && joinDate.getSeconds() === 0);
+        
+        if (isMorning) {
+          // For 00:00, it belongs to the new day
+          periodLabel = `${datePart} (00:00-12:00)`;
+        } else {
+          periodLabel = `${datePart} (12:01-23:59)`;
+        }
+
+        if (!periods[periodLabel]) {
+          periods[periodLabel] = {
+            date: new Date(joinDate),
             members: []
           };
         }
-        periods[periodKey].members.push(member);
+        periods[periodLabel].members.push(member);
       });
+      
       return periods;
     };
 
@@ -941,13 +953,9 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
     let prevLeft = 0, prevRight = 0;
     let specialMatchDone = false;
 
-    for (const periodKey of allPeriods) {
-      const periodDate = new Date(periodKey);
-      const periodLabel = periodDate.toISOString().split('T')[0] +
-        (periodDate.getHours() === 0 ? ' (00:00-12:00)' : ' (12:01-23:59)');
-
-      const currLeft = leftPeriods[periodKey]?.members?.length || 0;
-      const currRight = rightPeriods[periodKey]?.members?.length || 0;
+    for (const periodLabel of allPeriods) {
+      const currLeft = leftPeriods[periodLabel]?.members?.length || 0;
+      const currRight = rightPeriods[periodLabel]?.members?.length || 0;
 
       let totalLeft = prevLeft + currLeft;
       let totalRight = prevRight + currRight;

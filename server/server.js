@@ -4084,6 +4084,44 @@ app.get('/api/all-bank-details', authenticateToken, async (req, res) => {
   }
 });
 
+//edit the bank
+// Add this to your backend API routes
+app.put('/api/update-bank-details/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Don't allow updating member_id
+    if (updates.member_id) {
+      return res.status(400).json({ error: 'Cannot change member ID' });
+    }
+
+    // Add updated_at timestamp
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('bank_details')
+      .update(updates)
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Bank details not found' });
+    }
+
+    res.json(data[0]);
+
+  } catch (error) {
+    console.error('Error updating bank details:', error);
+    res.status(500).json({ error: 'Failed to update bank details' });
+  }
+});
+
 
 //update pass
 app.post('/api/reset-password', authenticateToken, async (req, res) => {

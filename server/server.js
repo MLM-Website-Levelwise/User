@@ -836,6 +836,7 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
 
     const growthPackageNames = growthPackages.map(p => p.name);
     const defaultMatchingValue = growthPackages[0]?.matching_value || 5;
+    // console.log(defaultMatchingValue);
 
     // 2. Get All Members
     const { data: allMembers, error: membersError } = await supabase
@@ -975,10 +976,10 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
 
           periodRecords.push({
             date: periodLabel,
-            prevLeft,
-            prevRight,
-            currLeft,
-            currRight,
+            prevLeft: prevLeft * defaultMatchingValue,
+            prevRight: prevRight * defaultMatchingValue,
+            currLeft: currLeft * defaultMatchingValue,
+            currRight: currRight * defaultMatchingValue,
             totalLeft,
             totalRight,
             matches: 1,
@@ -996,10 +997,10 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
 
           periodRecords.push({
             date: periodLabel,
-            prevLeft,
-            prevRight,
-            currLeft,
-            currRight,
+            prevLeft: prevLeft * defaultMatchingValue,
+            prevRight: prevRight * defaultMatchingValue,
+            currLeft: currLeft * defaultMatchingValue,
+            currRight: currRight * defaultMatchingValue,
             totalLeft,
             totalRight,
             matches: 1,
@@ -1023,10 +1024,10 @@ app.get('/matching-income', authenticateToken, async (req, res) => {
 
           periodRecords.push({
             date: periodLabel,
-            prevLeft,
-            prevRight,
-            currLeft,
-            currRight,
+            prevLeft: prevLeft * defaultMatchingValue,
+            prevRight: prevRight * defaultMatchingValue,
+            currLeft: currLeft * defaultMatchingValue,
+            currRight: currRight * defaultMatchingValue,
             totalLeft,
             totalRight,
             matches: oneOneMatches,
@@ -2513,6 +2514,20 @@ app.get('/my-member', authenticateToken, async (req, res) => {
     const userId = req.user.userId; // For admin
     const memberId = req.user.memberId; // For members
     
+    // First get Growth Packages to check for PV
+    const { data: growthPackages, error: packagesError } = await supabase
+      .from('packages')
+      .select('*')
+      .eq('plan_name', 'Growth Package');
+    
+    if (packagesError) throw packagesError;
+    
+    const growthPackageNames = growthPackages?.map(p => p.name) || [];
+    const packagePVMap = new Map();
+    growthPackages?.forEach(pkg => {
+      packagePVMap.set(pkg.name, pkg.matching_value || 0);
+    });
+
     // Get the current user's member ID (either admin or member)
     let rootMemberId;
     
@@ -2568,8 +2583,8 @@ app.get('/my-member', authenticateToken, async (req, res) => {
           ...member,
           topup_date: topUpInfo.topup_date || null,
           topup_amount: topUpInfo.topup_amount || null,
-          // Add time from created_at
-          join_time: member.created_at ? new Date(member.created_at).toLocaleTimeString() : null
+          join_time: member.created_at ? new Date(member.created_at).toLocaleTimeString() : null,
+          pv: growthPackageNames.includes(member.package) ? (packagePVMap.get(member.package)) || 0 : 0
         };
       });
       
@@ -2618,8 +2633,8 @@ app.get('/my-member', authenticateToken, async (req, res) => {
           ...member,
           topup_date: topUpInfo.topup_date || null,
           topup_amount: topUpInfo.topup_amount || null,
-          // Add time from created_at
-          join_time: member.created_at ? new Date(member.created_at).toLocaleTimeString() : null
+          join_time: member.created_at ? new Date(member.created_at).toLocaleTimeString() : null,
+          pv: growthPackageNames.includes(member.package) ? (packagePVMap.get(member.package) || 0) : 0
         };
       });
     }
@@ -3155,7 +3170,6 @@ app.get('/topup-statement', authenticateToken, async (req, res) => {
     }
 
     const formattedData = data.map(item => ({
-      'sl no': item.id,
       'mem id': item.activated_member_id,
       'mem name': item.activated_member_name,
       'top up date': item.transaction_date,

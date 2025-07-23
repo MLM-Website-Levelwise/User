@@ -150,7 +150,6 @@ const TopUp_Statement: React.FC = () => {
                 <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Member Name</th>
                 <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Package</th>
                 <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Amount</th>
-                
                 <th className="px-6 py-3 text-left text-sm font-medium uppercase tracking-wider">Status</th>
               </tr>
             </thead>
@@ -171,7 +170,7 @@ const TopUp_Statement: React.FC = () => {
                 filteredHistory.map((entry, index) => (
                   <tr key={index} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-base text-gray-500">
-                      {entry['sl no']}
+                      {filteredHistory.length - index} {/* This reverses the serial numbers */}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-base text-gray-500">
                       {new Date(entry['top up date']).toLocaleString("en-IN", {
@@ -203,7 +202,6 @@ const TopUp_Statement: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-base font-semibold text-gray-900">
                       ${entry['amt']}
                     </td>
-                    
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 rounded-md text-sm font-medium ${
                         entry['status'] === 'completed' 

@@ -110,6 +110,24 @@ const ViewMember = () => {
     });
   }, [members, searchTerm, filters]);
 
+  // Calculate total PV based on filtered members
+  const totalPV = useMemo(() => {
+    return filteredMembers.reduce((sum, member) => sum + (parseFloat(member.pv)) || 0, 0);
+  }, [filteredMembers]);
+
+  // Calculate left and right PV totals
+  const leftRightPV = useMemo(() => {
+    return filteredMembers.reduce((acc, member) => {
+      const pv = parseFloat(member.pv) || 0;
+      if (member.position === "Left") {
+        acc.left += pv;
+      } else if (member.position === "Right") {
+        acc.right += pv;
+      }
+      return acc;
+    }, { left: 0, right: 0 });
+  }, [filteredMembers]);
+
   // Pagination logic
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -178,6 +196,48 @@ const ViewMember = () => {
 
       <div className="bg-white rounded-lg shadow-sm">
         <div className="p-4 md:p-6 border-b border-gray-200">
+          {/* PV Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {/* Total PV Card */}
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-blue-800">Total PV</h3>
+                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                  All
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-blue-600 mt-1">
+                {totalPV.toFixed(2)}
+              </p>
+            </div>
+
+            {/* Left PV Card */}
+            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-yellow-800">Left PV</h3>
+                <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
+                  Left
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-yellow-600 mt-1">
+                {leftRightPV.left.toFixed(2)}
+              </p>
+            </div>
+
+            {/* Right PV Card */}
+            <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-green-800">Right PV</h3>
+                <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">
+                  Right
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-green-600 mt-1">
+                {leftRightPV.right.toFixed(2)}
+              </p>
+            </div>
+          </div>
+
           {/* Top Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div className="relative w-full sm:max-w-xs">
@@ -459,7 +519,9 @@ const ViewMember = () => {
                       <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
                         ${member.topup_amount || "0"}
                       </td>
-                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900"></td>
+                      <td className="px-3 py-4 text-xs md:text-sm text-gray-900">
+                        {member.pv || "0"}
+                      </td>
                       <td className="px-3 py-4 text-xs md:text-sm whitespace-nowrap text-gray-900">
                         {member.package}
                       </td>

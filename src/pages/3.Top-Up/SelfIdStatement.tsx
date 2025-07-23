@@ -26,6 +26,7 @@ const Self_Statement: React.FC = () => {
         }
 
         const data = await response.json();
+         console.log("API Response:", data);
         if (data.success) {
           setActivations(data.transactions);
         }

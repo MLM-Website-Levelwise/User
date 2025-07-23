@@ -431,12 +431,27 @@ app.post('/members', authenticateToken, async (req, res) => {
       sponsor_name,
       package,
       password,
-      position // Add position field
+      position
     } = req.body;
 
     // Validate required fields
     if (!name || !phone_number || !sponsor_code || !sponsor_name || !package || !password || !position) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Check if sponsor exists and is active
+    const { data: sponsor, error: sponsorError } = await supabase
+      .from('members')
+      .select('active_status')
+      .eq('member_id', sponsor_code)
+      .single();
+
+    if (sponsorError) throw sponsorError;
+    if (!sponsor) {
+      return res.status(400).json({ error: 'Sponsor not found' });
+    }
+    if (!sponsor.active_status) {
+      return res.status(400).json({ error: 'Sponsor account is inactive. Cannot add members under an inactive sponsor.' });
     }
 
     // Generate unique member ID
@@ -454,7 +469,7 @@ app.post('/members', authenticateToken, async (req, res) => {
         sponsor_name,
         package,
         password,
-        position, // Include position in insert
+        position,
         active_status: false
       }])
       .select()
@@ -482,7 +497,6 @@ app.put('/members/:id', authenticateToken, async (req, res) => {
       email,
       sponsor_code,
       sponsor_name,
-      package,
       password,
       date_of_joining,
       position
@@ -494,7 +508,6 @@ app.put('/members/:id', authenticateToken, async (req, res) => {
       phone_number,
       sponsor_code,
       sponsor_name,
-      package,
       password,
       date_of_joining,
       position
@@ -511,6 +524,17 @@ app.put('/members/:id', authenticateToken, async (req, res) => {
       });
     }
 
+    const { data: existingMember, error: fetchError } = await supabase
+      .from('members')
+      .select('package')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!existingMember) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
     const { data: updatedMember, error } = await supabase
       .from('members')
       .update({
@@ -519,21 +543,16 @@ app.put('/members/:id', authenticateToken, async (req, res) => {
         email: email || null,
         sponsor_code,
         sponsor_name,
-        package,
         password,
         date_of_joining,
         position,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)  // Using numeric id here
+      .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-
-    if (!updatedMember) {
-      return res.status(404).json({ error: 'Member not found' });
-    }
 
     res.json({
       message: 'Member updated successfully',
@@ -3312,8 +3331,8 @@ app.get('/self-activation-report', authenticateToken, async (req, res) => {
         status,
         notes
       `)
-      .eq('member_id', memberId)
-      .eq('transaction_type', 'activation')
+      .eq('activated_member_id', memberId)
+      .ilike('transaction_type', '%activation%')
       .order('transaction_date', { ascending: false });
 
     if (activationError) throw activationError;
@@ -4122,6 +4141,43 @@ app.put('/api/update-bank-details/:id', authenticateToken, async (req, res) => {
   }
 });
 
+//get for single user bank details
+// Add this to your backend API routes
+app.get('/api/bank-details/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('bank_details')
+      .select(`
+        *,
+        members:member_id (name)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: 'Bank details not found' });
+    }
+
+    // Format the response
+    const response = {
+      ...data,
+      member_name: data.members?.name || 'Unknown'
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('Error fetching bank details:', error);
+    res.status(500).json({ error: 'Failed to fetch bank details' });
+  }
+});
 
 //update pass
 app.post('/api/reset-password', authenticateToken, async (req, res) => {

@@ -142,7 +142,8 @@ const AddMember = () => {
       !formData.mobileNo ||
       !formData.sponsorCode ||
       !formData.sponsorName ||
-      !formData.password
+      !formData.password ||
+      !formData.position
     ) {
       toast({
         title: "Error",
@@ -560,21 +561,21 @@ const AddMember = () => {
                       </div>
 
                       <div>
-              <label className="block text-sm font-medium mb-1">
-                Position *
-              </label>
-              <select
-                name="position"
-                value={formData.position}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                required
-              >
-                <option value="">Select Position</option>
-                <option value="Left">Left</option>
-                <option value="Right">Right</option>
-              </select>
-            </div>
+                        <label className="block text-sm font-medium mb-1">
+                          Position *
+                        </label>
+                        <select
+                          name="position"
+                          value={formData.position}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border rounded-md border-gray-300 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          required
+                        >
+                          <option value="">Select Position</option>
+                          <option value="Left">Left</option>
+                          <option value="Right">Right</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
 

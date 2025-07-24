@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import { Wallet, ChevronDown, FileText, Loader } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Invoice {
   invoiceId: string;
@@ -21,6 +22,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 type PlanType = "growth" | "profit-sharing";
 
 const ReTopUp = () => {
+  const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [profitSharingAmount, setProfitSharingAmount] = useState<number>(75);
@@ -112,6 +114,10 @@ const ReTopUp = () => {
           remainingBalance: response.data.newBalance,
         });
         toast.success("Re-Top Up Successful!");
+        setTimeout(() => {
+          navigate("/top-up/self-statement");
+          window.location.reload();
+        }, 1000);
       }
     } catch (error) {
       toast.error(error.response?.data?.error || "Failed to process Re-Top Up");

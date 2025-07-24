@@ -31,8 +31,8 @@ import LevelIncomeSummary from "./pages/6. Income/LevelIncomeSum";
 import TreeView from "./pages/5.Geneology/TreeView";
 import LevelView from "./pages/5.Geneology/LevelView";
 
-// import SendRequest from "./pages/7.Withdrawal.tsx/SendRequest";
-// import RequestStatus from "./pages/7.Withdrawal.tsx/RequestStatus";
+import SendRequest from "./pages/6.Withdrawal.tsx/SendRequest";
+import RequestStatus from "./pages/6.Withdrawal.tsx/RequestStatus";
 
 import Profile from "./pages/7. Settings/Profile";
 import BankDetails from "./pages/7. Settings/BankDetails";
@@ -87,11 +87,11 @@ const App = () => (
             element={<LevelIncomeSummary />}
           />
           {/* Withdrawal */}
-          {/* <Route path="/withdrawal/send-request" element={<SendRequest />} />
+          <Route path="/withdrawal/send-request" element={<SendRequest />} />
           <Route
             path="/withdrawal/request-status"
             element={<RequestStatus />}
-          /> */}
+          />
 
           {/* Settings */}
           <Route path="/settings/profile" element={<Profile />} />

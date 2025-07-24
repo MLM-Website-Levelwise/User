@@ -2792,6 +2792,153 @@ app.post('/wallet-transfer', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/member-wallet-transfer', authenticateToken, async (req, res) => {
+  try {
+    const { 
+      member_id, 
+      transfer_type, 
+      amount, 
+      sender_member_id, 
+      sender_member_name 
+    } = req.body;
+    
+    const transferAmount = parseFloat(amount);
+
+    // Validate input
+    if (!member_id || !transfer_type || !amount || !sender_member_id) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (isNaN(transferAmount)) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    // Check if sender has sufficient balance
+    let senderBalance;
+    if (transfer_type === 'Main Wallet') {
+      const { data: mainBalance } = await supabase
+        .from('wallet_transactions')
+        .select('amount')
+        .eq('member_id', sender_member_id)
+        .eq('transaction_type', 'Main Wallet');
+      
+      senderBalance = mainBalance?.reduce((sum, txn) => sum + Number(txn.amount), 0) || 0;
+    } else if (transfer_type === 'Re Top-up Wallet') {
+      const { data: reTopupBalance } = await supabase
+        .from('wallet_transactions')
+        .select('amount')
+        .eq('member_id', sender_member_id)
+        .eq('transaction_type', 'Re Top-up Wallet');
+      
+      senderBalance = reTopupBalance?.reduce((sum, txn) => sum + Number(txn.amount), 0) || 0;
+    } else {
+      return res.status(400).json({ error: 'Invalid transfer type' });
+    }
+
+    if (senderBalance < transferAmount) {
+      return res.status(400).json({ error: 'Insufficient balance' });
+    }
+
+    // Check if recipient exists
+    const { data: recipient, error: recipientError } = await supabase
+      .from('members')
+      .select('member_id, name')
+      .eq('member_id', member_id)
+      .single();
+
+    if (recipientError || !recipient) {
+      return res.status(400).json({ error: 'Recipient not found' });
+    }
+
+    // Start transaction
+    await supabase.rpc('begin');
+
+    try {
+      // Create debit transaction for sender
+      const { error: debitError } = await supabase
+  .from('wallet_transactions')
+  .insert({
+    member_id: sender_member_id,
+    transaction_type: transfer_type,
+    amount: -transferAmount,
+    notes: `Transfer to ${recipient.name} (${member_id})`,
+    initiated_by: sender_member_name || sender_member_id,
+    initiator_member_id: sender_member_id, // Use the new column
+    original_amount: transferAmount,
+  });
+
+      if (debitError) throw debitError;
+
+      // Create credit transaction for recipient
+      const { error: creditError } = await supabase
+  .from('wallet_transactions')
+  .insert({
+    member_id: member_id,
+    transaction_type: transfer_type,
+    amount: transferAmount,
+    notes: `Transfer from ${sender_member_name || sender_member_id}`,
+    initiated_by: sender_member_name || sender_member_id,
+    initiator_member_id: sender_member_id, // Use the new column
+    original_amount: transferAmount,
+  });
+
+      if (creditError) throw creditError;
+
+      // For Main Wallet transfers, also record in main_balance_transactions
+      if (transfer_type === 'Main Wallet') {
+        const { error: mainBalanceError } = await supabase
+          .from('main_balance_transactions')
+          .insert({
+            member_id: member_id,
+            transaction_type: 'Credit',
+            plan_type: 'Member Transfer',
+            amount: transferAmount,
+            notes: `Transfer from ${sender_member_name || sender_member_id}`,
+            activated_member_id: sender_member_id,
+            activated_member_name: sender_member_name,
+          });
+
+        if (mainBalanceError) throw mainBalanceError;
+      }
+
+      // For Re-Top Up transfers, also record in re_top_up_transactions
+      if (transfer_type === 'Re Top-up Wallet') {
+        const { error: reTopupError } = await supabase
+          .from('re_top_up_transactions')
+          .insert({
+            member_id: member_id,
+            plan_type: 'Member Transfer',
+            amount: transferAmount,
+            status: 'completed',
+          });
+
+        if (reTopupError) throw reTopupError;
+      }
+
+      // Commit transaction if all operations succeeded
+      await supabase.rpc('commit');
+
+      res.json({
+        success: true,
+        message: 'Transfer completed successfully',
+        amount: transferAmount,
+        recipient: recipient.name,
+        wallet_type: transfer_type,
+      });
+    } catch (error) {
+      // Rollback on error
+      await supabase.rpc('rollback');
+      throw error;
+    }
+  } catch (error) {
+    console.error('Member wallet transfer error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to process wallet transfer'
+    });
+  }
+});
+
 // Add this to your backend (server.js or similar)
 app.get('/admin-wallet-transactions', authenticateToken, async (req, res) => {
   try {

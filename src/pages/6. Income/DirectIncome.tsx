@@ -19,27 +19,27 @@ const DirectIncome = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-  const fetchIncomeData = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/income`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      // Ensure we're working with an array
-      const data = Array.isArray(response.data) ? response.data : response.data.transactions || [];
-      setIncomeData(data);
-    } catch (err) {
-      setError(err.response?.data?.error || err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+   useEffect(() => {
+    const fetchIncomeData = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/income`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
 
-  fetchIncomeData();
-}, []);
+        console.log("Income API response:", response.data);
+        setIncomeData(response.data || []);
+      } catch (err) {
+        console.error("Income fetch error:", err);
+        setError(err.response?.data?.error || err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchIncomeData();
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFrom, setDateFrom] = useState("");

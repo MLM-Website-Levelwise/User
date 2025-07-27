@@ -1950,18 +1950,31 @@ async function calculatePreviousDaysIncome(memberId, endDate, teamMembers, level
     .order('transaction_date', { ascending: true })
     .limit(1);
 
-  if (!activationData || activationData.length === 0) {
+  const { data: activationData2 } = await supabase
+    .from('re_top_up_transactions')
+    .select('transaction_date')
+    .eq('member_id', memberId)
+    .eq('plan_type', 'profit-sharing')
+    .order('transaction_date', { ascending: true })
+    .limit(1);  
+
+  if (!activationData || activationData.length === 0 && !activationData2 || activationData2.length === 0) {
     return { totalIncome: 0, dailyBreakdown: {} };
   }
+const noMain = !activationData || activationData.length === 0;
+  const noRetopup = !activationData2 || activationData2.length === 0;
+  const candidates = [];
+  if (!noMain) candidates.push(new Date(activationData[0].transaction_date));
+  if (!noRetopup) candidates.push(new Date(activationData2[0].transaction_date));
 
-  const activationDate = new Date(activationData[0].transaction_date);
+  const activationDate = new Date(Math.min(...candidates.map(d => d.getTime())));
   const cutoffDate = new Date(endDate);
   const cutoffDay = cutoffDate.getDay();
   const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
   
   // Start calculations from the day AFTER first activation transaction
   const startDate = new Date(activationDate);
-  startDate.setDate(startDate.getDate() + 1);
+  // startDate.setDate(startDate.getDate() + 1);
   
   let currentDate = new Date(startDate);
   let cumulativeIncome = 0;
@@ -4018,7 +4031,7 @@ app.get('/api/income', authenticateToken, async (req, res) => {
   try {
     const memberId = req.user.memberId;
 
-    // Get member details
+    // Get current member info
     const { data: currentMember, error: memberError } = await supabase
       .from('members')
       .select('member_id, name')
@@ -4036,9 +4049,28 @@ app.get('/api/income', authenticateToken, async (req, res) => {
       .eq('sponsor_code', currentMember.member_id);
 
     if (referralsError) throw referralsError;
+
     const referralIds = directReferrals.map(r => r.member_id);
 
-    // Get re-top up transactions
+    // Get Growth Packages
+    const { data: growthPackages, error: packagesError } = await supabase
+      .from('packages')
+      .select('*')
+      .eq('plan_name', 'Growth Package');
+
+    if (packagesError) throw packagesError;
+    if (!growthPackages?.length) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: 'No Growth Packages available for matching'
+      });
+    }
+
+    const growthPlanNames = growthPackages.map(pkg => pkg.name);
+    const bonusMap = Object.fromEntries(growthPackages.map(pkg => [pkg.name, pkg.direct_bonus]));
+
+    // Fetch top-up transactions where the plan is a growth package
     const { data: topUpData, error: topUpError } = await supabase
       .from('re_top_up_transactions')
       .select(`
@@ -4046,10 +4078,12 @@ app.get('/api/income', authenticateToken, async (req, res) => {
         member:member_id (name)
       `)
       .in('member_id', referralIds)
-      .eq('plan_type', 'growth')
+      .in('plan_type', growthPlanNames)
       .order('transaction_date', { ascending: false });
 
-    // Get activation commissions
+    if (topUpError) throw topUpError;
+
+    // Fetch activation commissions for growth packages
     const { data: balanceData, error: balanceError } = await supabase
       .from('main_balance_transactions')
       .select(`
@@ -4058,34 +4092,34 @@ app.get('/api/income', authenticateToken, async (req, res) => {
       `)
       .in('activated_member_id', referralIds)
       .ilike('transaction_type', '%activation%')
-      .eq('plan_type', 'growth')
+      .in('plan_type', growthPlanNames)
       .order('transaction_date', { ascending: false });
 
-    if (topUpError || balanceError) throw topUpError || balanceError;
+    if (balanceError) throw balanceError;
 
-    // Format data for UI with proper date and all required fields
+    // Combine and format
     const combinedData = [
       ...topUpData.map(t => ({
         id: t.id,
         transaction_date: new Date(t.transaction_date).toISOString(),
         member_id: t.member_id,
         name: t.member?.name || 'N/A',
-        transaction_type: 'Re-top up', // Changed from 'type' to 'transaction_type'
-        plan_type: t.plan_type || 'growth', // Changed from 'package' to 'plan_type'
+        transaction_type: 'Re-top up',
+        plan_type: t.plan_type,
         amount: t.amount,
-        income: t.amount * 0.1,
+        income: bonusMap[t.plan_type] || 0,
         activated_member_name: t.member?.name || 'N/A'
       })),
-      
+
       ...balanceData.map(t => ({
         id: t.id,
         transaction_date: new Date(t.transaction_date).toISOString(),
         member_id: t.activated_member_id,
         name: t.activated_member?.name || t.activated_member_name || 'N/A',
-        transaction_type: t.transaction_type || 'member_activation', // Changed from 'type'
-        plan_type: t.plan_type || 'growth', // Changed from 'package'
+        transaction_type: t.transaction_type || 'member_activation',
+        plan_type: t.plan_type,
         amount: t.amount,
-        income: t.amount * 0.1, // Commission is full amount for activations (removed *0.1)
+        income: bonusMap[t.plan_type] || 0,
         activated_member_name: t.activated_member?.name || t.activated_member_name || 'N/A'
       }))
     ];
@@ -4096,6 +4130,7 @@ app.get('/api/income', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch income data' });
   }
 });
+
 
 // Get bank details for logged-in user
 app.get('/api/bank-details', authenticateToken, async (req, res) => {

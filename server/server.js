@@ -3893,6 +3893,302 @@ app.get('/profit-sharing', authenticateToken, async (req, res) => {
   }
 });
 
+const API_BASE_URL = 'http://localhost:5000'
+//withdraw
+app.post('/withdraw', authenticateToken, async (req, res) => {
+  try {
+    const { wallet_type, amount, memberId } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
+
+    // Validate request
+    if (!['profit', 'working', 'growth'].includes(wallet_type)) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid wallet type' 
+      });
+    }
+    
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Invalid amount' 
+      });
+    }
+
+    if (amount < 5) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Minimum withdrawal amount is $5' 
+      });
+    }
+
+    let walletBalance = 0;
+
+    // Check wallet balance
+    if (wallet_type === 'working') {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const [levelIncomeRes, matchingIncomeRes, directIncomeRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/level-income`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: today, member_id: memberId }
+        }),
+        axios.get(`${API_BASE_URL}/matching-income`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: today, member_id: memberId }
+        }),
+        axios.get(`${API_BASE_URL}/api/income`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { member_id: memberId }
+        })
+      ]);
+
+      const levelIncome = levelIncomeRes.data.summary?.totalIncome || 0;
+      const matchingIncome = matchingIncomeRes.data.data?.totalIncome || 
+                           matchingIncomeRes.data.totalIncome || 
+                           0;
+      const directIncome = Array.isArray(directIncomeRes.data) 
+        ? directIncomeRes.data.reduce((sum, item) => sum + (item.income || 0), 0)
+        : 0;
+      
+      walletBalance = levelIncome + matchingIncome + directIncome;
+    } else if (wallet_type === 'profit') {
+      const profitRes = await axios.get(`${API_BASE_URL}/profit-sharing`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { member_id: memberId }
+      });
+      walletBalance = profitRes.data.balance || 0;
+    }
+
+    if (amount > walletBalance) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient balance. Available: $${walletBalance.toFixed(2)}`
+      });
+    }
+
+    // Check bank details
+    const { data: bankDetails, error: bankError } = await supabase
+      .from('bank_details')
+      .select('*')
+      .eq('member_id', memberId)
+      .single();
+
+    if (bankError || !bankDetails) {
+      return res.status(400).json({
+        success: false,
+        error: 'Bank details not found. Please update your bank details first.'
+      });
+    }
+
+    // Create withdrawal - using created_at as transaction date
+    const { data: withdrawal, error: withdrawError } = await supabase
+      .from('withdrawals')
+      .insert([{
+        member_id: memberId,
+        wallet_type: wallet_type,
+        amount: amount,
+        status: 'pending'
+        // created_at will be automatically set to now()
+      }])
+      .select()
+      .single();
+
+    if (withdrawError) throw withdrawError;
+
+    res.json({
+      success: true,
+      withdrawal: withdrawal,
+      remainingBalance: walletBalance - amount
+    });
+
+  } catch (error) {
+    console.error('Withdrawal Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
+    });
+  }
+});
+
+// Add this to your backend routes
+app.get('/withdrawals', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.member_id; // Get from authenticated user
+    const { page = 1, limit = 10 } = req.query;
+
+    // Calculate pagination
+    const offset = (page - 1) * limit;
+
+    // Get withdrawal history
+    const { data: withdrawals, error, count } = await supabase
+      .from('withdrawals')
+      .select('*', { count: 'exact' })
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data: withdrawals.map(w => ({
+        id: w.id,
+        amount: w.amount,
+        date: w.created_at, // Using created_at as transaction date
+        status: w.status === 'pending' ? 'Pending' : 
+               w.status === 'approved' ? 'Approved' : 'Rejected'
+      })),
+      total: count,
+      page: Number(page),
+      limit: Number(limit)
+    });
+
+  } catch (error) {
+    console.error('Withdrawal history error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch withdrawal history'
+    });
+  }
+});
+
+// Get withdrawal requests with bank details
+app.get('/admin/withdrawals', authenticateToken, async (req, res) => {
+  try {
+    const { status = 'pending', page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    // 1. First get withdrawals
+    const { data: withdrawals, error: withdrawalError, count } = await supabase
+      .from('withdrawals')
+      .select('*', { count: 'exact' })
+      .eq('status', status)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (withdrawalError) throw withdrawalError;
+
+    // 2. Get member details for each withdrawal
+    const memberIds = withdrawals.map(w => w.member_id);
+    const { data: members, error: memberError } = await supabase
+      .from('members')
+      .select('member_id, name')
+      .in('member_id', memberIds);
+
+    if (memberError) throw memberError;
+
+    // 3. Get bank details for each member
+    const { data: bankDetails, error: bankError } = await supabase
+      .from('bank_details')
+      .select('*')
+      .in('member_id', memberIds);
+
+    if (bankError) throw bankError;
+
+    // Combine the data
+    const result = withdrawals.map(w => {
+      const member = members.find(m => m.member_id === w.member_id);
+      const bank = bankDetails.find(b => b.member_id === w.member_id);
+
+      return {
+        id: w.id,
+        date: w.created_at,
+        userId: w.member_id,
+        name: member?.name || 'Unknown',
+        wallet: w.wallet_type,
+        amount: w.amount,
+        bankName: bank?.bank_name || 'N/A',
+        branch: bank?.branch_name || 'N/A',
+        accountNo: bank?.account_number || 'N/A',
+        ifsc: bank?.ifsc_code || 'N/A'
+      };
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      total: count,
+      page: Number(page),
+      limit: Number(limit)
+    });
+
+  } catch (error) {
+    console.error('Error fetching withdrawals:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch withdrawals' });
+  }
+});
+
+// Update withdrawal status
+app.get('/admin/withdrawals/history', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    // 1. First get approved withdrawals
+    const { data: withdrawals, error: withdrawalError, count } = await supabase
+      .from('withdrawals')
+      .select('*', { count: 'exact' })
+      .eq('status', 'approved')  // Only approved withdrawals
+      .order('updated_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (withdrawalError) throw withdrawalError;
+
+    // 2. Get member details for each withdrawal
+    const memberIds = withdrawals.map(w => w.member_id);
+    const { data: members, error: memberError } = await supabase
+      .from('members')
+      .select('member_id, name')
+      .in('member_id', memberIds);
+
+    if (memberError) throw memberError;
+
+    // 3. Get bank details for each member
+    const { data: bankDetails, error: bankError } = await supabase
+      .from('bank_details')
+      .select('*')
+      .in('member_id', memberIds);
+
+    if (bankError) throw bankError;
+
+    // Combine the data
+    const result = withdrawals.map(w => {
+      const member = members.find(m => m.member_id === w.member_id);
+      const bank = bankDetails.find(b => b.member_id === w.member_id);
+
+      return {
+        id: w.id,
+        date: w.updated_at,
+        userId: w.member_id,
+        name: member?.name || 'Unknown',
+        wallet: w.wallet_type,
+        amount: w.amount,
+        bankName: bank?.bank_name || 'N/A',
+        branch: bank?.branch_name || 'N/A',
+        accountNo: bank?.account_number || 'N/A',
+        ifsc: bank?.ifsc_code || 'N/A',
+        status: w.status
+      };
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      total: count,
+      page: Number(page),
+      limit: Number(limit)
+    });
+
+  } catch (error) {
+    console.error('Error fetching withdrawal history:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch withdrawal history' 
+    });
+  }
+});
+
 
 // Test endpoint to check if investments exist
 app.get('/check-profit-sharing-investments', authenticateToken, async (req, res) => {

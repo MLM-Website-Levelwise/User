@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
@@ -11,27 +12,47 @@ interface Request {
   status: "Pending" | "Approved" | "Rejected";
 }
 
-const dummyData: Request[] = [
-  { id: 1, amount: 100, date: "2025-06-10", status: "Pending" },
-  { id: 2, amount: 250, date: "2025-06-11", status: "Approved" },
-  { id: 3, amount: 300, date: "2025-06-12", status: "Rejected" },
-  { id: 4, amount: 150, date: "2025-06-13", status: "Pending" },
-  { id: 5, amount: 500, date: "2025-06-14", status: "Approved" },
-  { id: 6, amount: 450, date: "2025-06-15", status: "Approved" },
-  { id: 7, amount: 200, date: "2025-06-16", status: "Pending" },
-  { id: 8, amount: 100, date: "2025-06-17", status: "Rejected" },
-  { id: 9, amount: 350, date: "2025-06-18", status: "Pending" },
-  { id: 10, amount: 275, date: "2025-06-19", status: "Approved" },
-];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Request_Status = () => {
-  const [entriesPerPage, setEntriesPerPage] = useState(5); // Reduced default for mobile
+  const [entriesPerPage, setEntriesPerPage] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [totalRequests, setTotalRequests] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const startIndex = (currentPage - 1) * entriesPerPage;
-  const endIndex = startIndex + entriesPerPage;
-  const paginatedData = dummyData.slice(startIndex, endIndex);
-  const totalPages = Math.ceil(dummyData.length / entriesPerPage);
+  const fetchWithdrawals = async () => {
+    try {
+      setIsLoading(true);
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API_BASE_URL}/withdrawals`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          page: currentPage,
+          limit: entriesPerPage
+        }
+      });
+
+      if (response.data.success) {
+        setRequests(response.data.data);
+        setTotalRequests(response.data.total);
+      } else {
+        throw new Error(response.data.error || "Failed to fetch withdrawals");
+      }
+    } catch (err) {
+      console.error("Error fetching withdrawals:", err);
+      setError(err.response?.data?.error || err.message || "Failed to fetch withdrawals");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWithdrawals();
+  }, [currentPage, entriesPerPage]);
+
+  const totalPages = Math.ceil(totalRequests / entriesPerPage);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -44,6 +65,17 @@ const Request_Status = () => {
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   return (
@@ -82,8 +114,9 @@ const Request_Status = () => {
         </div>
 
         <div className="text-xs sm:text-sm text-black">
-          Showing {startIndex + 1} to {Math.min(endIndex, dummyData.length)} of{" "}
-          {dummyData.length} entries
+          Showing {(currentPage - 1) * entriesPerPage + 1} to{" "}
+          {Math.min(currentPage * entriesPerPage, totalRequests)} of{" "}
+          {totalRequests} entries
         </div>
       </div>
 
@@ -93,53 +126,52 @@ const Request_Status = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-blue-600">
               <tr>
-                <th
-                  scope="col"
-                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
+                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   #
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
+                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Amount
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
-                  Date
+                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  Date & Time
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
+                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Status
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {paginatedData.length === 0 ? (
+              {isLoading ? (
                 <tr>
-                  <td
-                    colSpan={4}
-                    className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-black"
-                  >
+                  <td colSpan={4} className="px-3 sm:px-6 py-4 text-center">
+                    <div className="flex justify-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    </div>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={4} className="px-3 sm:px-6 py-4 text-center text-red-500 text-sm">
+                    {error}
+                  </td>
+                </tr>
+              ) : requests.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 sm:px-6 py-4 text-center text-gray-500 text-sm">
                     No withdrawal requests found
                   </td>
                 </tr>
               ) : (
-                paginatedData.map((item, index) => (
+                requests.map((item, index) => (
                   <tr key={item.id} className="hover:bg-gray-50">
                     <td className="px-3 sm:px-6 py-3 whitespace-nowrap text-xs sm:text-sm font-medium text-black">
-                      {startIndex + index + 1}
+                      {(currentPage - 1) * entriesPerPage + index + 1}
                     </td>
                     <td className="px-3 sm:px-6 py-3 whitespace-nowrap text-xs sm:text-sm text-black">
-                      ₹{item.amount.toLocaleString()}
+                      ${item.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-3 sm:px-6 py-3 whitespace-nowrap text-xs sm:text-sm text-black">
-                      {new Date(item.date).toLocaleDateString()}
+                      {formatDateTime(item.date)}
                     </td>
                     <td className="px-3 sm:px-6 py-3 whitespace-nowrap">
                       <span
@@ -165,7 +197,7 @@ const Request_Status = () => {
         </div>
         <div className="flex space-x-1 sm:space-x-2">
           <button
-            disabled={currentPage === 1}
+            disabled={currentPage === 1 || isLoading}
             onClick={() => setCurrentPage((prev) => prev - 1)}
             className="relative inline-flex items-center px-2 sm:px-3 py-1 border border-gray-300 text-xs sm:text-sm font-medium rounded-md text-black bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -174,7 +206,7 @@ const Request_Status = () => {
             <span className="sm:hidden">Prev</span>
           </button>
           <button
-            disabled={currentPage === totalPages || totalPages === 0}
+            disabled={currentPage === totalPages || totalPages === 0 || isLoading}
             onClick={() => setCurrentPage((prev) => prev + 1)}
             className="relative inline-flex items-center px-2 sm:px-3 py-1 border border-gray-300 text-xs sm:text-sm font-medium rounded-md text-black bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >

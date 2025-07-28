@@ -1,144 +1,232 @@
-import React, { useState } from "react";
-
-// Import your predefined components
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
 
-const Membership_Card = () => {
-  const [selectedWallet, setSelectedWallet] = useState("");
-  const [requestAmount, setRequestAmount] = useState("");
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  // Wallet data with different balances
-  const wallets = {
-    "": { name: "Select Wallet", balance: 0 },
-    profit: { name: "Profit Sharing Wallet", balance: 52740.0 },
-    working: { name: "Working Wallet", balance: 18250.0 },
-    growth: { name: "Growth Wallet", balance: 35480.0 },
-  };
-
-  const currentBalance = wallets[selectedWallet]?.balance || 0;
-
+const SendRequestPage = () => {
   return (
-    <div className="w-full max-w-md mx-auto bg-gradient-to-br from-yellow-50 to-red-50 p-4 sm:p-6 rounded-md shadow-md border border-gray-200">
-      <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">
-        Withdraw Request
-      </h2>
+    <SidebarProvider>
+      <div className="min-h-screen flex flex-col md:flex-row w-full bg-gray-50">
+        <AppSidebar />
+        <div className="flex-1 flex flex-col">
+          <DashboardHeader />
+          <main className="flex-1 p-4 sm:p-6">
+            <div className="max-w-4xl mx-auto">
+              {/* Header */}
+              <div className="bg-gray-800 text-white px-4 sm:px-6 py-4 border-b border-gray-700 flex justify-center mb-2">
+                <h2 className="text-lg sm:text-xl font-bold text-center">
+                  Withdrawal Request
+                </h2>
+              </div>
 
-      {/* Wallet Selection Dropdown */}
-      <div className="mb-4">
-        <label className="block font-semibold text-gray-700 mb-1 text-sm sm:text-base">
-          Choose Wallet
-        </label>
-        <select
-          value={selectedWallet}
-          onChange={(e) => setSelectedWallet(e.target.value)}
-          className="w-full border border-gray-300 bg-white text-gray-800 rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Select Wallet</option>
-          <option value="profit">Profit Sharing Wallet</option>
-          <option value="working">Working Wallet</option>
-          <option value="growth">Growth Wallet</option>
-        </select>
-      </div>
+              {/* Main Form */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
+                <SendRequestComponent />
 
-      {/* Available Balance */}
-      <div className="mb-4">
-        <label className="block font-semibold text-gray-700 mb-1 text-sm sm:text-base">
-          Available Balance
-        </label>
-        <input
-          type="text"
-          value={
-            selectedWallet
-              ? `₹${currentBalance.toLocaleString("en-IN", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`
-              : "₹0.00"
-          }
-          readOnly
-          className="w-full border border-gray-300 bg-gray-100 text-gray-700 rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base font-semibold"
-        />
+                {/* Additional Info Panel */}
+                <div className="lg:hidden bg-white p-4 sm:p-6 rounded-md shadow-md border border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                    Withdrawal Information
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="border-l-4 border-blue-500 pl-4">
+                      <h4 className="font-semibold text-gray-700 text-sm">
+                        Processing Time
+                      </h4>
+                      <p className="text-gray-600 text-xs">
+                        Withdrawals are processed within 24-48 hours
+                      </p>
+                    </div>
+                    <div className="border-l-4 border-green-500 pl-4">
+                      <h4 className="font-semibold text-gray-700 text-sm">
+                        Minimum Amount
+                      </h4>
+                      <p className="text-gray-600 text-xs">
+                        Minimum withdrawal amount is $5 for all wallets
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
       </div>
-
-      {/* Request Amount */}
-      <div className="mb-4">
-        <label className="block font-semibold text-gray-700 mb-1 text-sm sm:text-base">
-          Request Balance
-        </label>
-        <input
-          type="number"
-          placeholder="Enter request amount"
-          value={requestAmount}
-          onChange={(e) => setRequestAmount(e.target.value)}
-          className="w-full border border-gray-300 bg-white text-gray-800 rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
-          disabled={!selectedWallet}
-          min="1"
-          step="0.01"
-        />
-        {!selectedWallet && (
-          <p className="text-xs text-gray-500 mt-1">
-            Please select a wallet first
-          </p>
-        )}
-      </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
-const Send_Request = () => {
+const SendRequestComponent = () => {
   const [selectedWallet, setSelectedWallet] = useState("");
   const [requestAmount, setRequestAmount] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [walletBalances, setWalletBalances] = useState({
+    profit: 0,
+    working: 0,
+    growth: 0
+  });
+  const [loadingBalances, setLoadingBalances] = useState(true);
+  const [memberId, setMemberId] = useState("");
+  const MIN_WITHDRAWAL = 5; // Minimum withdrawal amount in USD
 
-  // Wallet data with different balances
+  // Get member ID from localStorage
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        setMemberId(user.member_id || "");
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+    }
+  }, []);
+
+  // Fetch wallet balances
+  useEffect(() => {
+    const fetchBalances = async () => {
+      try {
+        setLoadingBalances(true);
+        const token = localStorage.getItem("token");
+        
+        if (!token) {
+          console.error("No token found");
+          return;
+        }
+        
+        // Fetch profit sharing balance
+        const profitRes = await axios.get(`${API_BASE_URL}/profit-sharing`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        // Fetch working wallet balance
+        const today = new Date().toISOString().split('T')[0];
+        const [levelIncomeRes, matchingIncomeRes, directIncomeRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/level-income`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { date: today }
+          }),
+          axios.get(`${API_BASE_URL}/matching-income`, {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { date: today }
+          }),
+          axios.get(`${API_BASE_URL}/api/income`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+
+        // Calculate working wallet balance
+        const levelIncome = levelIncomeRes.data.summary?.totalIncome || 0;
+        const matchingIncome = matchingIncomeRes.data.data?.totalIncome || 
+                             matchingIncomeRes.data.totalIncome || 
+                             0;
+        const directIncome = Array.isArray(directIncomeRes.data) 
+          ? directIncomeRes.data.reduce((sum, item) => sum + (item.income || 0), 0)
+          : 0;
+        const workingBalance = levelIncome + matchingIncome + directIncome;
+
+        setWalletBalances({
+          profit: profitRes.data.balance || 0,
+          working: workingBalance,
+          growth: 0
+        });
+      } catch (error) {
+        console.error("Error fetching wallet balances:", error);
+      } finally {
+        setLoadingBalances(false);
+      }
+    };
+
+    fetchBalances();
+  }, []);
+
   const wallets = {
     "": { name: "Select Wallet", balance: 0 },
-    profit: { name: "Profit Sharing Wallet", balance: 52740.0 },
-    working: { name: "Working Wallet", balance: 18250.0 },
-    growth: { name: "Growth Wallet", balance: 35480.0 },
+    profit: { name: "Profit Sharing Wallet", balance: walletBalances.profit },
+    working: { name: "Working Wallet", balance: walletBalances.working },
+    growth: { name: "Growth Wallet", balance: walletBalances.growth },
   };
 
   const currentBalance = wallets[selectedWallet]?.balance || 0;
 
   const handleSubmit = async () => {
-    if (!selectedWallet) {
-      alert("Please select a wallet first");
-      return;
+  if (!selectedWallet) {
+    alert("Please select a wallet first");
+    return;
+  }
+
+  const amount = parseFloat(requestAmount);
+  
+  if (isNaN(amount) || amount < MIN_WITHDRAWAL) {
+    alert(`Minimum withdrawal amount is $${MIN_WITHDRAWAL}`);
+    return;
+  }
+
+  if (amount > currentBalance) {
+    alert(
+      `Insufficient balance. Available balance: $${currentBalance.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}`
+    );
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const token = localStorage.getItem("token");
+    const memberData = JSON.parse(localStorage.getItem("member") || "{}");
+    
+    if (!memberData.member_id) {
+      throw new Error("Member information not found");
     }
 
-    if (!requestAmount || parseFloat(requestAmount) <= 0) {
-      alert("Please enter a valid amount");
-      return;
-    }
+    const response = await axios.post(
+      `${API_BASE_URL}/withdraw`,
+      {
+        wallet_type: selectedWallet,
+        amount: amount,
+        memberId: String(memberData.member_id) // Using memberId (not member_id) to match your API
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
 
-    if (parseFloat(requestAmount) > currentBalance) {
-      alert(
-        `Insufficient balance. Available balance: ₹${currentBalance.toLocaleString(
-          "en-IN",
-          { minimumFractionDigits: 2 }
-        )}`
-      );
-      return;
-    }
-
-    setIsLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
+    if (response.data.success) {
       setSuccessMessage(
-        `₹${parseFloat(requestAmount).toLocaleString("en-IN", {
+        `$${amount.toLocaleString("en-US", {
           minimumFractionDigits: 2,
         })} withdrawal request submitted successfully from ${
           wallets[selectedWallet].name
         }`
       );
       setRequestAmount("");
-      setIsLoading(false);
-    }, 1500);
-  };
+      
+      // Update local balance
+      const newBalance = currentBalance - amount;
+      setWalletBalances(prev => ({
+        ...prev,
+        [selectedWallet]: newBalance
+      }));
+    } else {
+      throw new Error(response.data.error || "Withdrawal failed");
+    }
+  } catch (error) {
+    console.error("Withdrawal error:", error);
+    alert(error.message || "Failed to submit withdrawal request");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const resetForm = () => {
     setSelectedWallet("");
@@ -152,7 +240,7 @@ const Send_Request = () => {
         Withdraw Request
       </h2>
 
-      {/* Wallet Selection Dropdown */}
+      {/* Wallet Selection */}
       <div className="mb-4">
         <label className="block font-semibold text-gray-700 mb-1 text-sm sm:text-base">
           Choose Wallet
@@ -161,17 +249,20 @@ const Send_Request = () => {
           value={selectedWallet}
           onChange={(e) => {
             setSelectedWallet(e.target.value);
-            setSuccessMessage(""); // Clear success message when wallet changes
-            setRequestAmount(""); // Clear amount when wallet changes
+            setSuccessMessage("");
+            setRequestAmount("");
           }}
           className="w-full border border-gray-300 bg-white text-gray-800 rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-          disabled={isLoading}
+          disabled={isLoading || loadingBalances}
         >
           <option value="">Select Wallet</option>
           <option value="profit">Profit Sharing Wallet</option>
           <option value="working">Working Wallet</option>
           <option value="growth">Growth Wallet</option>
         </select>
+        {loadingBalances && (
+          <p className="text-xs text-gray-500 mt-1">Loading wallet balances...</p>
+        )}
       </div>
 
       {/* Available Balance */}
@@ -183,11 +274,11 @@ const Send_Request = () => {
           type="text"
           value={
             selectedWallet
-              ? `₹${currentBalance.toLocaleString("en-IN", {
+              ? `$${currentBalance.toLocaleString("en-US", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}`
-              : "₹0.00"
+              : "$0.00"
           }
           readOnly
           className="w-full border border-gray-300 bg-gray-100 text-gray-700 rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base font-semibold"
@@ -197,24 +288,29 @@ const Send_Request = () => {
       {/* Request Amount */}
       <div className="mb-6">
         <label className="block font-semibold text-gray-700 mb-1 text-sm sm:text-base">
-          Request Balance
+          Request Amount (Min: ${MIN_WITHDRAWAL})
         </label>
         <input
           type="number"
-          placeholder="Enter request amount"
+          placeholder={`Enter amount (min $${MIN_WITHDRAWAL})`}
           value={requestAmount}
           onChange={(e) => {
             setRequestAmount(e.target.value);
-            setSuccessMessage(""); // Clear success message when amount changes
+            setSuccessMessage("");
           }}
           className="w-full border border-gray-300 bg-white text-gray-800 rounded-md px-3 sm:px-4 py-2 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-          disabled={!selectedWallet || isLoading}
-          min="1"
+          disabled={!selectedWallet || isLoading || loadingBalances}
+          min={MIN_WITHDRAWAL}
           step="0.01"
         />
         {!selectedWallet && (
           <p className="text-xs text-gray-500 mt-1">
             Please select a wallet first
+          </p>
+        )}
+        {selectedWallet && requestAmount && parseFloat(requestAmount) < MIN_WITHDRAWAL && (
+          <p className="text-xs text-red-500 mt-1">
+            Minimum withdrawal amount is ${MIN_WITHDRAWAL}
           </p>
         )}
         {selectedWallet &&
@@ -234,7 +330,9 @@ const Send_Request = () => {
           !selectedWallet ||
           !requestAmount ||
           isLoading ||
-          parseFloat(requestAmount) > currentBalance
+          parseFloat(requestAmount) < MIN_WITHDRAWAL ||
+          parseFloat(requestAmount) > currentBalance ||
+          loadingBalances
         }
       >
         {isLoading ? (
@@ -262,15 +360,15 @@ const Send_Request = () => {
         </div>
       )}
 
-      {/* Wallet Info Display */}
+      {/* Wallet Info */}
       {selectedWallet && (
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <h3 className="text-sm font-semibold text-blue-800 mb-1">
             Selected: {wallets[selectedWallet].name}
           </h3>
           <p className="text-xs text-blue-600">
-            Available: ₹
-            {currentBalance.toLocaleString("en-IN", {
+            Available: $
+            {currentBalance.toLocaleString("en-US", {
               minimumFractionDigits: 2,
             })}
           </p>
@@ -280,84 +378,4 @@ const Send_Request = () => {
   );
 };
 
-const SendRequest = () => {
-  return (
-    <SidebarProvider>
-      <div className="min-h-screen flex flex-col md:flex-row w-full bg-gray-50">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col">
-          <DashboardHeader />
-          <main className="flex-1 p-4 sm:p-6">
-            <div className="max-w-4xl mx-auto">
-              {/* Header */}
-              <div className="bg-gray-800 text-white px-4 sm:px-6 py-4 border-b border-gray-700 flex justify-center mb-2">
-                <h2 className="text-lg sm:text-xl font-bold text-center">
-                  Withdrawal Request
-                </h2>
-              </div>
-
-              {/* Main Form */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
-                <Send_Request />
-
-                {/* Additional Info Panel - Hidden on laptop/desktop screens (lg and up) */}
-                <div className="lg:hidden bg-white p-4 sm:p-6 rounded-md shadow-md border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                    Withdrawal Information
-                  </h3>
-
-                  <div className="space-y-4">
-                    <div className="border-l-4 border-blue-500 pl-4">
-                      <h4 className="font-semibold text-gray-700 text-sm">
-                        Processing Time
-                      </h4>
-                      <p className="text-gray-600 text-xs">
-                        Withdrawals are processed within 24-48 hours
-                      </p>
-                    </div>
-
-                    <div className="border-l-4 border-green-500 pl-4">
-                      <h4 className="font-semibold text-gray-700 text-sm">
-                        Minimum Amount
-                      </h4>
-                      <p className="text-gray-600 text-xs">
-                        Minimum withdrawal amount is 5$ - ROI
-                      </p>
-                      <p className="text-gray-600 text-xs">
-                        Minimum withdrawal amount is 6$ - Working
-                      </p>
-                    </div>
-
-                    {/* <div className="border-l-4 border-yellow-500 pl-4">
-                      <h4 className="font-semibold text-gray-700 text-sm">
-                        Transaction Fees
-                      </h4>
-                      <p className="text-gray-600 text-xs">
-                        No additional fees for standard withdrawals
-                      </p>
-                    </div> */}
-                  </div>
-
-                  {/* <div className="mt-6 p-3 bg-gray-50 rounded-md">
-                    <h4 className="font-semibold text-gray-700 text-sm mb-2">
-                      Need Help?
-                    </h4>
-                    <p className="text-gray-600 text-xs">
-                      Contact our support team for any withdrawal-related
-                      queries.
-                    </p>
-                    <button className="mt-2 text-blue-600 hover:text-blue-800 text-xs underline">
-                      Contact Support
-                    </button>
-                  </div> */}
-                </div>
-              </div>
-            </div>
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
-  );
-};
-
-export default SendRequest;
+export default SendRequestPage;

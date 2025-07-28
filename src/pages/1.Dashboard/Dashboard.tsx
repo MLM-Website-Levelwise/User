@@ -48,45 +48,88 @@ interface DashboardData {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Dashboard = () => {
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
-    null
-  );
-   const [levelIncomeTotal, setLevelIncomeTotal] = useState(0);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [workingWalletTotal, setWorkingWalletTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          navigate("/login");
-          return;
-        }
-
-        // Fetch dashboard data
-        const dashboardRes = await axios.get(`${API_BASE_URL}/member-dashboard`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setDashboardData(dashboardRes.data);
-
-        // Fetch level income total separately
-        const levelIncomeRes = await axios.get(`${API_BASE_URL}/level-income`, {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { date: new Date().toISOString().split('T')[0] }
-        });
-        
-        setLevelIncomeTotal(levelIncomeRes.data.summary.totalIncome);
-        
-      } catch (err) {
-        console.error("Failed to fetch data:", err);
-      } finally {
-        setLoading(false);
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/login");
+        return;
       }
-    };
 
-    fetchData();
-  }, [navigate]);
+      // Fetch dashboard data
+      const dashboardRes = await axios.get(`${API_BASE_URL}/member-dashboard`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDashboardData(dashboardRes.data);
+
+      // Fetch all income data in parallel
+      const today = new Date().toISOString().split('T')[0];
+      const [levelIncomeRes, matchingIncomeRes, directIncomeRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/level-income`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: today }
+        }),
+        axios.get(`${API_BASE_URL}/matching-income`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: today }
+        }),
+        axios.get(`${API_BASE_URL}/api/income`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      // Debugging logs to check API responses
+      console.log("Level Income Response:", levelIncomeRes.data);
+      console.log("Matching Income Response:", matchingIncomeRes.data);
+      console.log("Direct Income Response:", directIncomeRes.data);
+
+      // Calculate income totals
+      const levelIncome = levelIncomeRes.data.summary?.totalIncome || 0;
+      
+      // Correct way to extract matching income based on your API structure
+      const matchingIncome = matchingIncomeRes.data.data?.totalIncome || 
+                           matchingIncomeRes.data.totalIncome || 
+                           0;
+      
+      // Calculate direct income by summing all income values
+      const directIncome = Array.isArray(directIncomeRes.data) 
+        ? directIncomeRes.data.reduce((sum: number, item: any) => sum + (item.income || 0), 0)
+        : 0;
+
+      const total = levelIncome + matchingIncome + directIncome;
+      
+      console.log("Calculated Totals:", {
+        levelIncome,
+        matchingIncome,
+        directIncome,
+        total
+      });
+
+      setWorkingWalletTotal(total);
+      
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+      // Add more detailed error logging
+      if (axios.isAxiosError(err)) {
+        console.error("Axios error details:", {
+          message: err.message,
+          response: err.response?.data,
+          status: err.response?.status
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, [navigate]);
 
   if (loading) {
     return (
@@ -184,11 +227,6 @@ const Dashboard = () => {
                         </>
                       )}
                     </div>
-                    {/* <p className="text-xs opacity-80 mt-1">
-                      {dashboardData?.member.status === "ACTIVE"
-                        ? "Active Member"
-                        : "Inactive Member"}
-                    </p> */}
                     {dashboardData?.member.topup_info && (
                       <>
                         <p className="text-base mt-2">
@@ -206,22 +244,22 @@ const Dashboard = () => {
                 </Card>
 
                 {/* Profit Sharing Wallet Card */}
-<Card className="border-0 shadow-md bg-gradient-to-br from-indigo-500 to-indigo-700 text-white">
-  <CardHeader className="flex flex-row items-center justify-between p-4">
-    <CardTitle className="text-xl font-medium">
-      Profit Sharing Wallet
-    </CardTitle>
-    <Wallet className="w-5 h-5" />
-  </CardHeader>
-  <CardContent className="p-4 pt-0">
-    <div className="text-2xl font-bold">
-      ${dashboardData?.balances.fund?.toFixed(3) || "0.000"}
-    </div>
-    <p className="text-sm opacity-80 mt-1">
-      Total earnings from profit sharing
-    </p>
-  </CardContent>
-</Card>
+                <Card className="border-0 shadow-md bg-gradient-to-br from-indigo-500 to-indigo-700 text-white">
+                  <CardHeader className="flex flex-row items-center justify-between p-4">
+                    <CardTitle className="text-xl font-medium">
+                      Profit Sharing Wallet
+                    </CardTitle>
+                    <Wallet className="w-5 h-5" />
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <div className="text-2xl font-bold">
+                      ${dashboardData?.balances.fund?.toFixed(3) || "0.000"}
+                    </div>
+                    <p className="text-sm opacity-80 mt-1">
+                      Total earnings from profit sharing
+                    </p>
+                  </CardContent>
+                </Card>
 
                 {/* Growth Wallet Card */}
                 <Card className="border-0 shadow-md bg-gradient-to-br from-cyan-600 to-cyan-800 text-white">
@@ -235,21 +273,24 @@ const Dashboard = () => {
                     <div className="text-2xl font-bold">${"0.00"}</div>
                   </CardContent>
                 </Card>
+                
+                {/* Working Wallet Card */}
                 <Card className="border-0 shadow-md bg-gradient-to-br from-cyan-600 to-cyan-800 text-white">
-      <CardHeader className="flex flex-row items-center justify-between p-4">
-        <CardTitle className="text-xl font-medium">
-          Working Wallet
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <div className="text-2xl font-bold">
-          ${levelIncomeTotal.toFixed(3)}
-        </div>
-        <p className="text-sm opacity-80 mt-1">
-          Total earnings from level income
-        </p>
-      </CardContent>
-    </Card>
+                  <CardHeader className="flex flex-row items-center justify-between p-4">
+                    <CardTitle className="text-xl font-medium">
+                      Working Wallet
+                    </CardTitle>
+                    <RefreshCw className="w-5 h-5" />
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <div className="text-2xl font-bold">
+                      ${workingWalletTotal.toFixed(3)}
+                    </div>
+                    <p className="text-sm opacity-80 mt-1">
+                      Total earnings (Level + Matching + Direct)
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </main>

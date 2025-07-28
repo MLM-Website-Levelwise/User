@@ -54,82 +54,48 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        navigate("/login");
-        return;
-      }
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          navigate("/login");
+          return;
+        }
 
-      // Fetch dashboard data
-      const dashboardRes = await axios.get(`${API_BASE_URL}/member-dashboard`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setDashboardData(dashboardRes.data);
-
-      // Fetch all income data in parallel
-      const today = new Date().toISOString().split('T')[0];
-      const [levelIncomeRes, matchingIncomeRes, directIncomeRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/level-income`, {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { date: today }
-        }),
-        axios.get(`${API_BASE_URL}/matching-income`, {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { date: today }
-        }),
-        axios.get(`${API_BASE_URL}/api/income`, {
+        // Fetch dashboard data
+        const dashboardRes = await axios.get(`${API_BASE_URL}/member-dashboard`, {
           headers: { Authorization: `Bearer ${token}` }
-        })
-      ]);
-
-      // Debugging logs to check API responses
-      console.log("Level Income Response:", levelIncomeRes.data);
-      console.log("Matching Income Response:", matchingIncomeRes.data);
-      console.log("Direct Income Response:", directIncomeRes.data);
-
-      // Calculate income totals
-      const levelIncome = levelIncomeRes.data.summary?.totalIncome || 0;
-      
-      // Correct way to extract matching income based on your API structure
-      const matchingIncome = matchingIncomeRes.data.data?.totalIncome || 
-                           matchingIncomeRes.data.totalIncome || 
-                           0;
-      
-      // Calculate direct income by summing all income values
-      const directIncome = Array.isArray(directIncomeRes.data) 
-        ? directIncomeRes.data.reduce((sum: number, item: any) => sum + (item.income || 0), 0)
-        : 0;
-
-      const total = levelIncome + matchingIncome + directIncome;
-      
-      console.log("Calculated Totals:", {
-        levelIncome,
-        matchingIncome,
-        directIncome,
-        total
-      });
-
-      setWorkingWalletTotal(total);
-      
-    } catch (err) {
-      console.error("Failed to fetch data:", err);
-      // Add more detailed error logging
-      if (axios.isAxiosError(err)) {
-        console.error("Axios error details:", {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status
         });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+        setDashboardData(dashboardRes.data);
 
-  fetchData();
-}, [navigate]);
+        // Fetch working wallet balance (this will include withdrawals deduction)
+        const workingWalletRes = await axios.get(`${API_BASE_URL}/working-wallet-balance`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        // Set the working wallet total (already has withdrawals deducted)
+        setWorkingWalletTotal(workingWalletRes.data.available_balance);
+
+        // Debugging logs
+        console.log("Working Wallet Response:", workingWalletRes.data);
+        console.log("Dashboard Response:", dashboardRes.data);
+
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+        if (axios.isAxiosError(err)) {
+          console.error("Axios error details:", {
+            message: err.message,
+            response: err.response?.data,
+            status: err.response?.status
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [navigate]);
 
   if (loading) {
     return (

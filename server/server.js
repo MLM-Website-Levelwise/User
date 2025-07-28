@@ -1633,6 +1633,24 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
       }
     }
 
+
+    // 7. Get withdrawals data for working wallet adjustments
+    const { data: withdrawals } = await supabase
+      .from('withdrawals')
+      .select('amount, wallet_type, status')
+      .eq('member_id', member.member_id)
+      .in('status', ['approved', 'pending']); // Include both approved and pending withdrawals
+
+    // Calculate total withdrawals from working wallet
+    const workingWithdrawals = withdrawals
+      ?.filter(w => w.wallet_type === 'working')
+      ?.reduce((sum, w) => sum + w.amount, 0) || 0;
+
+    // Calculate total withdrawals from profit sharing wallet
+    const profitSharingWithdrawals = withdrawals
+      ?.filter(w => w.wallet_type === 'profit-sharing')
+      ?.reduce((sum, w) => sum + w.amount, 0) || 0;
+
     res.json({
       member: {
         id: member.id,
@@ -1663,7 +1681,7 @@ app.get('/member-dashboard', authenticateToken, async (req, res) => {
         team: 2500
       },
       balances: {
-        fund: totalProfitSharing, // Updated to use calculated profit sharing
+        fund: totalProfitSharing - profitSharingWithdrawals, // Updated to use calculated profit sharing
         working: 28.2,
         prev_working: 0
       }
@@ -4007,6 +4025,96 @@ app.post('/withdraw', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Internal server error'
+    });
+  }
+});
+
+// Add this to your backend routes
+// Add this new endpoint to your backend routes
+app.get('/working-wallet-balance', authenticateToken, async (req, res) => {
+  try {
+    const memberId = req.user.member_id;
+    const today = new Date().toISOString().split('T')[0];
+    const token = req.headers.authorization?.split(' ')[1]; // Get the token from headers
+
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // 1. Calculate total income from all sources
+    const [levelIncomeRes, matchingIncomeRes, directIncomeRes] = await Promise.all([
+      axios.get(`${API_BASE_URL}/level-income`, {
+        headers: { 
+          Authorization: `Bearer ${token}` // Pass the token
+        },
+        params: { 
+          date: today, 
+          member_id: memberId 
+        }
+      }),
+      axios.get(`${API_BASE_URL}/matching-income`, {
+        headers: { 
+          Authorization: `Bearer ${token}` // Pass the token
+        },
+        params: { 
+          date: today, 
+          member_id: memberId 
+        }
+      }),
+      axios.get(`${API_BASE_URL}/api/income`, {
+        headers: { 
+          Authorization: `Bearer ${token}` // Pass the token
+        },
+        params: { 
+          member_id: memberId 
+        }
+      })
+    ]);
+
+    const levelIncome = levelIncomeRes.data.summary?.totalIncome || 0;
+    const matchingIncome = matchingIncomeRes.data.data?.totalIncome || 
+                         matchingIncomeRes.data.totalIncome || 
+                         0;
+    const directIncome = Array.isArray(directIncomeRes.data) 
+      ? directIncomeRes.data.reduce((sum, item) => sum + (item.income || 0), 0)
+      : 0;
+    
+    const totalIncome = levelIncome + matchingIncome + directIncome;
+
+    // 2. Get total withdrawals from working wallet
+    const { data: withdrawals, error: withdrawalError } = await supabase
+      .from('withdrawals')
+      .select('amount')
+      .eq('member_id', memberId)
+      .eq('wallet_type', 'working')
+      .in('status', ['approved', 'pending']);
+
+    if (withdrawalError) throw withdrawalError;
+
+    const totalWithdrawals = withdrawals?.reduce((sum, w) => sum + w.amount, 0) || 0;
+
+    // 3. Calculate available balance
+    const availableBalance = Math.max(0, totalIncome - totalWithdrawals);
+
+    res.json({
+      success: true,
+      total_income: totalIncome,
+      total_withdrawals: totalWithdrawals,
+      available_balance: availableBalance,
+      income_breakdown: {
+        level_income: levelIncome,
+        matching_income: matchingIncome,
+        direct_income: directIncome
+      },
+      last_updated: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Working wallet balance error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      message: error.message 
     });
   }
 });

@@ -3911,7 +3911,7 @@ app.get('/profit-sharing', authenticateToken, async (req, res) => {
   }
 });
 
-const API_BASE_URL = 'http://localhost:5000'
+const API_BASE_URL = process.env.URL;
 //withdraw
 app.post('/withdraw', authenticateToken, async (req, res) => {
   try {

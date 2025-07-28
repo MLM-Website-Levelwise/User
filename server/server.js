@@ -3940,20 +3940,62 @@ app.post('/withdraw', authenticateToken, async (req, res) => {
       });
     }
 
+    // Check withdrawal eligibility based on wallet type
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 (Sunday) to 6 (Saturday)
+    
+    if (wallet_type === 'working' && dayOfWeek !== 1) { // 1 is Monday
+      return res.status(400).json({
+        success: false,
+        error: 'Working wallet withdrawals are only allowed on Mondays'
+      });
+    }
+
+    if (wallet_type === 'profit') {
+      // Get the last activation date for profit sharing
+      const { data: lastActivation, error: activationError } = await supabase
+        .from('main_balance_transactions')
+        .select('transaction_date')
+        .eq('activated_member_id', memberId)
+        .eq('plan_type', 'profit-sharing')
+        .order('transaction_date', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (activationError || !lastActivation) {
+        return res.status(400).json({
+          success: false,
+          error: 'No profit-sharing activation found'
+        });
+      }
+
+      const lastActivationDate = new Date(lastActivation.transaction_date);
+      const daysSinceActivation = Math.floor((today - lastActivationDate) / (1000 * 60 * 60 * 24));
+      
+      // Allow withdrawal only once per month (30 days)
+      if (daysSinceActivation < 30) {
+        const daysRemaining = 30 - daysSinceActivation;
+        return res.status(400).json({
+          success: false,
+          error: `Profit-sharing withdrawals allowed once per month. Next withdrawal in ${daysRemaining} days.`
+        });
+      }
+    }
+
     let walletBalance = 0;
 
-    // Check wallet balance
+    // Check wallet balance (rest of your existing balance check logic)
     if (wallet_type === 'working') {
-      const today = new Date().toISOString().split('T')[0];
+      const todayStr = today.toISOString().split('T')[0];
       
       const [levelIncomeRes, matchingIncomeRes, directIncomeRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/level-income`, {
           headers: { Authorization: `Bearer ${token}` },
-          params: { date: today, member_id: memberId }
+          params: { date: todayStr, member_id: memberId }
         }),
         axios.get(`${API_BASE_URL}/matching-income`, {
           headers: { Authorization: `Bearer ${token}` },
-          params: { date: today, member_id: memberId }
+          params: { date: todayStr, member_id: memberId }
         }),
         axios.get(`${API_BASE_URL}/api/income`, {
           headers: { Authorization: `Bearer ${token}` },

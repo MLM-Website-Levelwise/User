@@ -74,72 +74,86 @@ const SendRequestComponent = () => {
   const MIN_WITHDRAWAL = 5; // Minimum withdrawal amount in USD
 
   // Get member ID from localStorage
+   const [withdrawalRules, setWithdrawalRules] = useState({
+    profit: '',
+    working: '',
+    growth: ''
+  });
+
+  // Fetch withdrawal rules when component mounts
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setMemberId(user.member_id || "");
-      } catch (error) {
-        console.error("Error parsing user data:", error);
-      }
-    }
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0-6 (Sunday-Saturday)
+    
+    setWithdrawalRules({
+      profit: 'Available once per month from activation date',
+      working: dayOfWeek === 1 ? 
+        'Available today (Monday)' : 
+        `Available only on Mondays (next: ${getNextMondayDate()})`,
+      growth: 'Available anytime'
+    });
   }, []);
+
+  // Helper function to get next Monday's date
+  const getNextMondayDate = () => {
+    const today = new Date();
+    const nextMonday = new Date(today);
+    nextMonday.setDate(today.getDate() + ((1 + 7 - today.getDay()) % 7));
+    return nextMonday.toLocaleDateString();
+  };
+
 
   // Fetch wallet balances
   useEffect(() => {
     const fetchBalances = async () => {
-      try {
-        setLoadingBalances(true);
-        const token = localStorage.getItem("token");
-        
-        if (!token) {
-          console.error("No token found");
-          return;
-        }
-        
-        // Fetch profit sharing balance
-        const profitRes = await axios.get(`${API_BASE_URL}/profit-sharing`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        // Fetch working wallet balance
-        const today = new Date().toISOString().split('T')[0];
-        const [levelIncomeRes, matchingIncomeRes, directIncomeRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/level-income`, {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { date: today }
-          }),
-          axios.get(`${API_BASE_URL}/matching-income`, {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { date: today }
-          }),
-          axios.get(`${API_BASE_URL}/api/income`, {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        ]);
+  try {
+    setLoadingBalances(true);
+    const token = localStorage.getItem("token");
+    
+    if (!token) {
+      console.error("No token found");
+      return;
+    }
+    
+    // Fetch both dashboard data and working wallet balance in parallel
+    const [dashboardRes, workingWalletRes] = await Promise.all([
+      axios.get(`${API_BASE_URL}/member-dashboard`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }),
+      axios.get(`${API_BASE_URL}/working-wallet-balance`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+    ]);
 
-        // Calculate working wallet balance
-        const levelIncome = levelIncomeRes.data.summary?.totalIncome || 0;
-        const matchingIncome = matchingIncomeRes.data.data?.totalIncome || 
-                             matchingIncomeRes.data.totalIncome || 
-                             0;
-        const directIncome = Array.isArray(directIncomeRes.data) 
-          ? directIncomeRes.data.reduce((sum, item) => sum + (item.income || 0), 0)
-          : 0;
-        const workingBalance = levelIncome + matchingIncome + directIncome;
+    // Extract profit sharing balance from dashboard
+    const profitBalance = dashboardRes.data.balances.fund || 0;
+    
+    // Extract working wallet balance from dedicated endpoint
+    const workingBalance = workingWalletRes.data.available_balance || 0;
 
-        setWalletBalances({
-          profit: profitRes.data.balance || 0,
-          working: workingBalance,
-          growth: 0
-        });
-      } catch (error) {
-        console.error("Error fetching wallet balances:", error);
-      } finally {
-        setLoadingBalances(false);
-      }
-    };
+    setWalletBalances({
+      profit: profitBalance,
+      working: workingBalance,
+      growth: 0
+    });
+
+    // Debugging logs
+    console.log("Dashboard Response:", dashboardRes.data);
+    console.log("Working Wallet Response:", workingWalletRes.data);
+
+  } catch (error) {
+    console.error("Error fetching wallet balances:", error);
+    if (axios.isAxiosError(error)) {
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+    }
+  } finally {
+    setLoadingBalances(false);
+  }
+};
 
     fetchBalances();
   }, []);
@@ -364,7 +378,7 @@ const SendRequestComponent = () => {
       {selectedWallet && (
         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <h3 className="text-sm font-semibold text-blue-800 mb-1">
-            Selected: {wallets[selectedWallet].name}
+            Selected: {withdrawalRules[selectedWallet].name}
           </h3>
           <p className="text-xs text-blue-600">
             Available: $
